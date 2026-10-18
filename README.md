@@ -15,6 +15,21 @@ Demo content is synthetic. Do not put real personal data on chain.
 
 ---
 
+## Try the live demo (no local setup)
+
+The **Vercel deploy is ready to use**. Demo agent keys, vault unlock, and keyed Arkiv RPC are already configured on the server. You do **not** need to create Agent A wallets or paste private keys to try the write path.
+
+1. Open the hosted app (your Vercel URL).
+2. Go to **`/app/live`**.
+3. Connect a wallet (you are the vault owner).
+4. Allowlist Agent A → **MCP-equivalent write** → Approve or Reject.
+
+That is enough to create sealed notes and endorsements on Tiramisu. Fund the connected wallet from the [Hub faucet](https://hub.arkiv.network/faucet) if it has no test GLM.
+
+Local install below is only if you want to run or fork the stack yourself.
+
+---
+
 ## Why Grove
 
 Multi-agent systems share working memory as notes. Those notes often live in operator-controlled stores or as plaintext on chain. A planted note can poison the next agent, and there is no cheap way to prove **who wrote it** or whether a **human approved** that exact ciphertext.
@@ -167,7 +182,7 @@ pnpm probe               # appends to arkiv/friction.md
 | `/app/verify` | `$creator` / hash without vault key |
 | `/app/agents` | Allowlist + trust tiers |
 
-`/api/vault/*` uses server-side `ARKIV_API_KEY` so the browser does not hit the anonymous RPC budget. Demo unlock uses `DEMO_VAULT_KEY` on the server only — never ship a real vault key as `NEXT_PUBLIC_*`.
+See [Try the live demo](#try-the-live-demo-no-local-setup) for the hosted path. `/api/vault/*` uses server-side `ARKIV_API_KEY` so the browser does not hit the anonymous RPC budget. Demo unlock uses `DEMO_VAULT_KEY` on the server only — never ship a real vault key as `NEXT_PUBLIC_*`.
 
 ---
 

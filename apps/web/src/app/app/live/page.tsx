@@ -62,6 +62,10 @@ export default function LivePlaygroundPage() {
   const [prompt, setPrompt] = useState(
     "Write a sealed Grove note titled 'Session memory' saying we verified Tiramisu handoff works. Keep it synthetic.",
   );
+  const [noteTitle, setNoteTitle] = useState("Field brief — Oct 19");
+  const [noteBody, setNoteBody] = useState(
+    "Tiramisu RPC stay keyed, vault decrypt works after endorse, and the live playground handoff is confirmed.",
+  );
   const [claudeOk, setClaudeOk] = useState<boolean | null>(null);
   const [step, setStep] = useState<Step>("connect");
 
@@ -224,8 +228,10 @@ export default function LivePlaygroundPage() {
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
           ownerAddress: address,
-          title: "MCP-equivalent note",
-          body: "Written with the same server path as grove_write_note. Human must endorse.",
+          title: noteTitle.trim() || "MCP-equivalent note",
+          body:
+            noteBody.trim() ||
+            "Written with the same server path as grove_write_note. Human must endorse.",
           tags: ["mcp", "synthetic", "live"],
         }),
       });
@@ -430,33 +436,61 @@ export default function LivePlaygroundPage() {
               <div className="sheet-pad">
                 <p className="sheet-label">Step 3</p>
                 <h2 className="sheet-title">Agent writes</h2>
+                <p className="sheet-copy">
+                  Set title and body for MCP-equivalent write, or give Claude a
+                  freeform prompt.
+                </p>
+                <label className="mt-3 block text-xs text-[var(--mute)]">
+                  Note title
+                  <input
+                    className="d-field mt-1"
+                    value={noteTitle}
+                    onChange={(e) => setNoteTitle(e.target.value)}
+                    placeholder="Note title"
+                  />
+                </label>
+                <label className="mt-2 block text-xs text-[var(--mute)]">
+                  Note body
+                  <textarea
+                    className="d-area mt-1"
+                    value={noteBody}
+                    onChange={(e) => setNoteBody(e.target.value)}
+                    rows={3}
+                  />
+                </label>
                 {claudeOk === false && (
-                  <p className="sheet-copy">
+                  <p className="sheet-copy mt-2">
                     Claude needs ANTHROPIC_API_KEY — use MCP-equivalent write
                     instead.
                   </p>
                 )}
-                <textarea
-                  className="d-area mt-3"
-                  value={prompt}
-                  onChange={(e) => setPrompt(e.target.value)}
-                />
+                <label className="mt-3 block text-xs text-[var(--mute)]">
+                  Claude prompt
+                  <textarea
+                    className="d-area mt-1"
+                    value={prompt}
+                    onChange={(e) => setPrompt(e.target.value)}
+                    disabled={claudeOk === false}
+                  />
+                </label>
                 <div className="sheet-actions">
+                  <button
+                    type="button"
+                    disabled={
+                      !!busy || !noteTitle.trim() || !noteBody.trim()
+                    }
+                    onClick={() => void triggerMcpEquivalentWrite()}
+                    className="d-btn d-btn-signal"
+                  >
+                    {busy === "write" ? "Writing…" : "MCP-equivalent write"}
+                  </button>
                   <button
                     type="button"
                     disabled={!!busy || claudeOk === false}
                     onClick={() => void askClaude()}
-                    className="d-btn d-btn-fill"
-                  >
-                    {busy === "claude" ? "Working…" : "Ask Claude"}
-                  </button>
-                  <button
-                    type="button"
-                    disabled={!!busy}
-                    onClick={() => void triggerMcpEquivalentWrite()}
                     className="d-btn d-btn-line"
                   >
-                    {busy === "write" ? "Writing…" : "MCP-equivalent write"}
+                    {busy === "claude" ? "Working…" : "Ask Claude"}
                   </button>
                 </div>
                 {chat.length > 0 && (
