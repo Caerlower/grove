@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { ConnectWallet } from "@/components/ConnectWallet";
 import { KeyGate } from "@/components/KeyGate";
 import {
   ObsidianGraph,
@@ -11,6 +12,7 @@ import {
 import { PageHeader } from "@/components/PageHeader";
 import { loadVaultNotes } from "@/lib/grove-client";
 import { publicConfig } from "@/lib/config";
+import { useArkivWallet } from "@/lib/useArkivWallet";
 
 type Item = Awaited<ReturnType<typeof loadVaultNotes>>[number];
 
@@ -18,8 +20,8 @@ export default function VaultPage() {
   return (
     <div className="vault-page">
       <PageHeader title="Vault">
-        Graph + library of sealed notes.{" "}
-        <Link href="/app/attack">Attack demo</Link>
+        Notes you own and endorsed. Seeded examples stay on{" "}
+        <Link href="/app/attack">Attack</Link>.
       </PageHeader>
       <KeyGate>{(key) => <VaultInner vaultKeyRaw={key} />}</KeyGate>
     </div>
@@ -27,6 +29,7 @@ export default function VaultPage() {
 }
 
 function VaultInner({ vaultKeyRaw }: { vaultKeyRaw: string }) {
+  const { address, isConnected } = useArkivWallet();
   const [items, setItems] = useState<Item[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -35,11 +38,20 @@ function VaultInner({ vaultKeyRaw }: { vaultKeyRaw: string }) {
   const [tick, setTick] = useState(0);
 
   useEffect(() => {
+    if (!isConnected || !address) {
+      setLoading(false);
+      setItems([]);
+      setError(null);
+      setStatus("Connect wallet");
+      return;
+    }
     let cancelled = false;
     setLoading(true);
     setError(null);
     setStatus("Starting…");
     loadVaultNotes(vaultKeyRaw, {
+      ownerAddress: address,
+      force: true,
       onStatus: (msg) => {
         if (!cancelled) setStatus(msg);
       },
@@ -56,7 +68,7 @@ function VaultInner({ vaultKeyRaw }: { vaultKeyRaw: string }) {
     return () => {
       cancelled = true;
     };
-  }, [vaultKeyRaw, tick]);
+  }, [vaultKeyRaw, tick, address, isConnected]);
 
   const { nodes, edges } = useMemo(() => {
     const nodes: GraphNode[] = items.map((item) => ({
@@ -93,6 +105,22 @@ function VaultInner({ vaultKeyRaw }: { vaultKeyRaw: string }) {
 
     return { nodes, edges };
   }, [items]);
+
+  if (!isConnected || !address) {
+    return (
+      <div className="sheet sheet-pad">
+        <p className="sheet-label">Vault owner</p>
+        <h2 className="sheet-title">Connect your wallet</h2>
+        <p className="sheet-copy mt-2">
+          Your connected address is the vault owner. After Live allowlist →
+          write → approve, notes show up here.
+        </p>
+        <div className="mt-4">
+          <ConnectWallet />
+        </div>
+      </div>
+    );
+  }
 
   if (loading) {
     return (
@@ -160,7 +188,8 @@ function VaultInner({ vaultKeyRaw }: { vaultKeyRaw: string }) {
           <div className="vault-graph-stage">
             {nodes.length === 0 ? (
               <p className="d-empty">
-                No allowed notes yet. Run pnpm seed or approve drafts in Pending.
+                No allowed notes for {address.slice(0, 6)}…{address.slice(-4)}{" "}
+                yet. Finish Live (allowlist → write → approve), then refresh.
               </p>
             ) : (
               <ObsidianGraph

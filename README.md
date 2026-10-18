@@ -17,14 +17,16 @@ Demo content is synthetic. Do not put real personal data on chain.
 
 ## Try the live demo (no local setup)
 
-The **Vercel deploy is ready to use**. Demo agent keys, vault unlock, and keyed Arkiv RPC are already configured on the server. You do **not** need to create Agent A wallets or paste private keys to try the write path.
+The **Vercel deploy is ready to use**. Demo agent keys, vault unlock, and keyed Arkiv RPC are already configured on the server. You do **not** need agent private keys locally.
+
+**Your connected wallet is the vault owner** for Live, Vault, and Pending. Notes are handed to that address; after you Approve, they show in **your** Vault (not the shared seed library of ~7 notes — those stay on Attack / explorer evidence).
 
 1. Open the hosted app (your Vercel URL).
-2. Go to **`/app/live`**.
-3. Connect a wallet (you are the vault owner).
-4. Allowlist Agent A → **MCP-equivalent write** → Approve or Reject.
+2. Connect a funded Tiramisu wallet ([faucet](https://hub.arkiv.network/faucet)).
+3. Go to **`/app/live`**: Allowlist Agent A → write → Approve.
+4. Open **`/app`** (Vault) with the same wallet — your endorsed note should appear.
 
-That is enough to create sealed notes and endorsements on Tiramisu. Fund the connected wallet from the [Hub faucet](https://hub.arkiv.network/faucet) if it has no test GLM.
+Attack board + [`docs/evidence.md`](./docs/evidence.md) still show the seeded A–G scenarios under the shared demo owner.
 
 Local install below is only if you want to run or fork the stack yourself.
 

@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getAddress } from "viem";
+import { getAddress, isAddress } from "viem";
 import {
   fetchAllEndorsements,
   fetchAllowlist,
@@ -12,9 +12,17 @@ import { arkivApiKey, serverCfg, serverPublicClient } from "@/lib/server-grove";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-export async function GET() {
+/** Pass ?owner=0x… (connected wallet) so vault/pending match Live handoff. */
+export async function GET(req: Request) {
   try {
-    const cfg = serverCfg();
+    const url = new URL(req.url);
+    const ownerParam = url.searchParams.get("owner");
+    const cfgBase = serverCfg();
+    const ownerAddress =
+      ownerParam && isAddress(ownerParam)
+        ? getAddress(ownerParam)
+        : getAddress(cfgBase.ownerAddress);
+    const cfg = { ...cfgBase, ownerAddress };
     const publicClient = serverPublicClient();
     const allow = await fetchAllowlist(publicClient, cfg);
     const endorsements = await fetchAllEndorsements(publicClient, cfg);
@@ -41,6 +49,7 @@ export async function GET() {
       keyed: Boolean(arkivApiKey()),
       project: cfg.project,
       vaultId: cfg.vaultId,
+      ownerAddress: cfg.ownerAddress,
     });
   } catch (e) {
     const message = e instanceof Error ? e.message : String(e);

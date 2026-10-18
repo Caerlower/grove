@@ -15,7 +15,7 @@ import {
   type GateResult,
   type NoteView,
 } from "@grove/core";
-import { getAddress } from "viem";
+import { getAddress, isAddress } from "viem";
 import { groveCfg, publicConfig } from "./config";
 import { reviveNote, type NoteWire } from "./note-wire";
 
@@ -79,9 +79,14 @@ function withTimeout<T>(p: Promise<T>, ms: number, label: string): Promise<T> {
 
 async function fetchSnapshot(
   onStatus: (msg: string) => void,
+  ownerAddress?: string,
 ): Promise<Snapshot> {
   onStatus("Fetching vault snapshot…");
-  const res = await fetch("/api/vault/snapshot", { cache: "no-store" });
+  const q =
+    ownerAddress && isAddress(ownerAddress)
+      ? `?owner=${encodeURIComponent(getAddress(ownerAddress))}`
+      : "";
+  const res = await fetch(`/api/vault/snapshot${q}`, { cache: "no-store" });
   const data = (await res.json()) as Snapshot;
   if (!res.ok) {
     throw new Error(
@@ -91,6 +96,16 @@ async function fetchSnapshot(
     );
   }
   return data;
+}
+
+function resolveOwner(ownerAddress?: string): string {
+  const raw = ownerAddress?.trim() || publicConfig.ownerAddress;
+  if (!raw || !isAddress(raw)) {
+    throw new Error(
+      "Connect a wallet (vault owner) or set NEXT_PUBLIC_OWNER_ADDRESS.",
+    );
+  }
+  return getAddress(raw);
 }
 
 export async function loadNoteByNid(nid: string): Promise<NoteView | null> {
@@ -137,10 +152,16 @@ export async function loadChainHead(): Promise<bigint> {
 
 export async function loadVaultNotes(
   vaultKeyRaw: string,
-  opts?: { force?: boolean; onStatus?: (msg: string) => void },
+  opts?: {
+    force?: boolean;
+    onStatus?: (msg: string) => void;
+    /** Connected wallet — vault owner for this session. */
+    ownerAddress?: string;
+  },
 ): Promise<VaultItem[]> {
   const status = opts?.onStatus ?? (() => {});
-  const cacheKey = vaultKeyRaw.trim();
+  const ownerAddress = resolveOwner(opts?.ownerAddress);
+  const cacheKey = `${vaultKeyRaw.trim()}::${ownerAddress.toLowerCase()}`;
   if (
     !opts?.force &&
     vaultCache &&
@@ -151,11 +172,9 @@ export async function loadVaultNotes(
     return vaultCache.items;
   }
 
-  const cfg = groveCfg();
-  if (!cfg.project || !cfg.vaultId || !cfg.ownerAddress) {
-    throw new Error(
-      "Missing NEXT_PUBLIC_PROJECT_VALUE / VAULT_ID / OWNER_ADDRESS in env.",
-    );
+  const cfg = { ...groveCfg(), ownerAddress };
+  if (!cfg.project || !cfg.vaultId) {
+    throw new Error("Missing NEXT_PUBLIC_PROJECT_VALUE / VAULT_ID in env.");
   }
 
   status("Unlocking vault key…");
@@ -167,7 +186,7 @@ export async function loadVaultNotes(
 
   try {
     const snap = await withTimeout(
-      fetchSnapshot(status),
+      fetchSnapshot(status, ownerAddress),
       60_000,
       "Vault snapshot",
     );
@@ -214,7 +233,7 @@ export async function loadVaultNotes(
     const endorsements = allEndorsements.filter((e) => e.nid === note.nid);
     const stats = computeTrustTier(note.creator, allEndorsements);
     const gate = await evaluateNote(note, {
-      ownerAddress: cfg.ownerAddress,
+      ownerAddress,
       allowlist,
       endorsements,
       creatorTier: stats.tier,
@@ -242,15 +261,19 @@ export async function loadVaultNotes(
   return items;
 }
 
-export async function loadPending(vaultKeyRaw: string) {
-  const cfg = groveCfg();
+export async function loadPending(
+  vaultKeyRaw: string,
+  opts?: { ownerAddress?: string },
+) {
+  const ownerAddress = resolveOwner(opts?.ownerAddress);
+  const cfg = { ...groveCfg(), ownerAddress };
   const vaultKey = await importVaultKey(vaultKeyRaw);
 
   let allEndorsements: EndorsementView[];
   let notes: NoteView[];
 
   try {
-    const snap = await fetchSnapshot(() => {});
+    const snap = await fetchSnapshot(() => {}, ownerAddress);
     allEndorsements = snap.endorsements;
     notes = snap.notes.map(reviveNote);
   } catch {
@@ -290,7 +313,7 @@ export async function loadPending(vaultKeyRaw: string) {
   }> = [];
 
   for (const note of notes) {
-    if (getAddress(note.owner) !== getAddress(cfg.ownerAddress)) continue;
+    if (getAddress(note.owner) !== ownerAddress) continue;
     if (allEndorsements.some((e) => e.nid === note.nid)) continue;
     const stats = computeTrustTier(note.creator, allEndorsements);
     let content;
