@@ -22,7 +22,7 @@ function ownerEndorsements(
 
 /**
  * Single trust gate used by MCP, web, and attack demo.
- * Order is fixed — do not reorder without updating tests and docs/submission.md.
+ * Order is fixed — do not reorder without updating tests and arkiv/schema.md.
  */
 export async function evaluateNote(
   note: NoteView,

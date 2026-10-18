@@ -1,6 +1,6 @@
 # Devfolio submission draft (Grove)
 
-Tracks: **Privacy (Global)**, **Security (Global)**. Optionally **Open Source** via `docs/schema.md` as the data contract.
+Tracks: **Privacy (Global)**, **Security (Global)**. Optionally **Open Source** via [`/arkiv/schema.md`](../arkiv/schema.md) as the data contract.
 
 ## Why Privacy?
 
@@ -28,16 +28,16 @@ We keep vault keys, plaintext, and trust thresholds off Arkiv on purpose.
 | Lifetime Extension | Approve → keep for 30 days | Extends on approve |
 | `changeOwnership` | Agent loses write after create | Verify shows `$owner` = vault owner; else `handoff_incomplete` |
 | `$creator` | Unforgeable authorship | Gate rejects non-allowlisted creators |
-| WebSocket events | Live pending (with 10s poll fallback) | Pending page refreshes |
+| WebSocket events | Live pending (with poll fallback) | Pending page refreshes |
 | Batch writes | Seed / multi-create probe | Faster setup |
 
 ## Friction
 
-See `docs/friction.md` (probe + integration notes).
+See [`/arkiv/friction.md`](../arkiv/friction.md) (probe + integration notes).
 
 ## Wallets that create entities
 
-Listed via `pnpm wallets` / `docs/evidence.md` after seed: OWNER, AGENT_A, AGENT_B, ROGUE.
+Listed via `pnpm wallets` / [`docs/evidence.md`](./evidence.md) after seed: OWNER, AGENT_A, AGENT_B, ROGUE. Also listed in the root README.
 
 ## Pre-existing work
 

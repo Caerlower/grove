@@ -1,6 +1,6 @@
 /**
  * Grove Tiramisu probe — run FIRST against funded wallets.
- * Appends results to docs/friction.md
+ * Appends results to arkiv/friction.md
  *
  * Usage: pnpm probe
  */
@@ -439,7 +439,7 @@ async function main() {
 }
 
 function flushFriction() {
-  const dir = resolve(process.cwd(), "docs");
+  const dir = resolve(process.cwd(), "arkiv");
   if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
   const path = resolve(dir, "friction.md");
   const header = `# Grove friction report
