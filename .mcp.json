@@ -1,0 +1,10 @@
+{
+  "mcpServers": {
+    "grove": {
+      "command": "pnpm",
+      "args": ["exec", "tsx", "packages/mcp/src/index.ts"],
+      "cwd": ".",
+      "envFile": ".env.local"
+    }
+  }
+}
