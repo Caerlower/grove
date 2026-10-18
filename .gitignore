@@ -1,0 +1,24 @@
+# dependencies / build
+node_modules
+dist
+.next
+coverage
+.turbo
+.pnpm-store
+*.tsbuildinfo
+
+# secrets & local state
+.env
+.env.local
+apps/web/.env.local
+EVIDENCE.local.md
+scripts/seed-result.json
+scripts/.wallets.json
+
+# tooling / OS
+*.log
+.DS_Store
+.cursor
+.ref-frames
+.vscode
+.idea

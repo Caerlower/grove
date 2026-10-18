@@ -1,0 +1,36 @@
+{
+  "name": "grove",
+  "private": true,
+  "version": "0.1.0",
+  "packageManager": "pnpm@10.13.1",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "postinstall": "node scripts/patch-arkiv-encryption.mjs",
+    "build": "pnpm -r --filter @grove/* build",
+    "test": "pnpm --filter @grove/core test",
+    "test:integration": "pnpm --filter @grove/core test:integration",
+    "probe": "node --import tsx scripts/probe.ts",
+    "seed": "node --import tsx scripts/seed.ts",
+    "wallets": "node --import tsx scripts/wallets.ts",
+    "evidence": "node --import tsx scripts/evidence.ts",
+    "owner": "node --import tsx packages/mcp/src/owner-cli.ts",
+    "mcp": "node --import tsx packages/mcp/src/index.ts",
+    "web": "pnpm --filter @grove/web dev",
+    "web:build": "pnpm --filter @grove/web build"
+  },
+  "devDependencies": {
+    "@types/node": "^22.20.5",
+    "dotenv": "^16.4.7",
+    "tsx": "^4.19.3",
+    "typescript": "^5.9.3",
+    "vitest": "^3.2.4"
+  },
+  "dependencies": {
+    "@arkiv-network/sdk": "^0.8.1",
+    "arkiv-encryption": "0.1.0",
+    "viem": "^2.57.7",
+    "zod": "^3.24.2"
+  }
+}
