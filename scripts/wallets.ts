@@ -13,7 +13,7 @@ function addr(label: string, pk?: string) {
   console.log(`${label}: ${account.address}`);
 }
 
-console.log("Grove entity-creating wallets (list these on Devfolio):\n");
+console.log("Grove entity-creating wallets:\n");
 addr("OWNER", process.env.OWNER_PRIVATE_KEY);
 addr("AGENT_A (MCP default)", process.env.AGENT_A_PRIVATE_KEY ?? process.env.AGENT_PRIVATE_KEY);
 addr("AGENT_B", process.env.AGENT_B_PRIVATE_KEY);
