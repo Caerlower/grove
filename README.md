@@ -193,6 +193,7 @@ See [Try the live demo](#try-the-live-demo-no-local-setup) for the hosted path. 
 
 | Tool | Behavior |
 | --- | --- |
+| `grove_help` | List all tools with one-line explanations |
 | `grove_write_note` | Seal + create + handoff |
 | `grove_read_note` | Gate, then unwrap or refuse |
 | `grove_search` | Scoped / blind-tag search |

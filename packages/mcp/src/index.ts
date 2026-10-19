@@ -17,6 +17,7 @@ import {
 import { getAddress, type Hex } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
 import { loadGroveEnv } from "./env.js";
+import { GROVE_MCP_HELP } from "./help.js";
 import { gatedReadNote, searchNotes } from "./reader.js";
 
 const env = loadGroveEnv();
@@ -28,6 +29,20 @@ const server = new McpServer({
   name: "grove",
   version: "0.1.0",
 });
+
+server.tool(
+  "grove_help",
+  "List every Grove MCP tool with a one-line explanation.",
+  {},
+  async () => ({
+    content: [
+      {
+        type: "text",
+        text: JSON.stringify(GROVE_MCP_HELP, null, 2),
+      },
+    ],
+  }),
+);
 
 server.tool(
   "grove_write_note",

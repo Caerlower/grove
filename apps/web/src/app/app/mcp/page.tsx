@@ -149,6 +149,18 @@ export default function McpConnectPage() {
 
       <section className="sheet">
         <div className="sheet-pad">
+          <p className="sheet-label">Help</p>
+          <h2 className="sheet-title">grove_help</h2>
+          <p className="sheet-copy">
+            Ask the connected AI:{" "}
+            <code className="font-mono">Call grove_help</code>. It returns every
+            tool with a one-line explanation, plus write tips.
+          </p>
+        </div>
+      </section>
+
+      <section className="sheet">
+        <div className="sheet-pad">
           <p className="sheet-label">3 · Ask the AI to write</p>
           <h2 className="sheet-title">Example prompt</h2>
           {!isConnected && (

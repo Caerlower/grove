@@ -16,6 +16,7 @@ import {
   serverCfg,
 } from "@/lib/server-grove";
 import { gatedReadNote, searchNotes } from "@/lib/mcp-reader";
+import { GROVE_MCP_HELP } from "@/lib/grove-mcp-help";
 
 type ToolServer = {
   tool: (
@@ -42,6 +43,20 @@ function mcpEnv() {
 /** Register Grove tools on an MCP server (HTTP via mcp-handler). */
 export function registerGroveMcpTools(server: ToolServer) {
   const env = mcpEnv();
+
+  server.tool(
+    "grove_help",
+    "List every Grove MCP tool with a one-line explanation.",
+    {},
+    async () => ({
+      content: [
+        {
+          type: "text",
+          text: JSON.stringify(GROVE_MCP_HELP, null, 2),
+        },
+      ],
+    }),
+  );
 
   server.tool(
     "grove_write_note",
