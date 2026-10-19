@@ -545,22 +545,16 @@ export default function LivePlaygroundPage() {
                       </button>
                     </div>
                     <p className="sheet-copy mt-2 text-xs">
-                      After the AI returns a <code className="font-mono">nid</code>,
-                      open{" "}
+                      After the AI writes, open{" "}
                       <Link href="/app/mcp" className="underline">
-                        Connect MCP → Endorse
-                      </Link>{" "}
-                      and paste it, or go to step 4 and paste the nid — skip
-                      Allowlist/Write for that note.
+                        Connect MCP → Approve
+                      </Link>
+                      — drafts for your wallet appear there automatically.
                     </p>
                     <div className="sheet-actions">
-                      <button
-                        type="button"
-                        className="d-btn d-btn-line"
-                        onClick={() => setStep("endorse")}
-                      >
-                        I already have an nid → Endorse
-                      </button>
+                      <Link href="/app/mcp" className="d-btn d-btn-line">
+                        Open MCP Approve queue
+                      </Link>
                     </div>
                   </div>
 

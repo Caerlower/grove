@@ -345,6 +345,82 @@ export async function loadPending(
   return queue;
 }
 
+/**
+ * Every unendorsed note owned by the wallet — used after MCP writes.
+ * Unlike loadPending, does not apply trusted-agent sampling (nothing hidden).
+ */
+export async function loadOwnerDrafts(
+  vaultKeyRaw: string,
+  opts?: { ownerAddress?: string },
+) {
+  const ownerAddress = resolveOwner(opts?.ownerAddress);
+  const cfg = { ...groveCfg(), ownerAddress };
+  const vaultKey = await importVaultKey(vaultKeyRaw);
+
+  let allEndorsements: EndorsementView[];
+  let notes: NoteView[];
+
+  try {
+    const snap = await fetchSnapshot(() => {}, ownerAddress);
+    allEndorsements = snap.endorsements;
+    notes = snap.notes.map(reviveNote);
+  } catch {
+    const publicClient = getPublic();
+    const allow = await withTimeout(
+      fetchAllowlist(publicClient, cfg),
+      25_000,
+      "Allowlist",
+    );
+    allEndorsements = await withTimeout(
+      fetchAllEndorsements(publicClient, cfg),
+      25_000,
+      "Endorsements",
+    );
+    notes = [];
+    for (const agent of allow) {
+      try {
+        notes.push(
+          ...(await withTimeout(
+            fetchNotesByCreator(publicClient, cfg, getAddress(agent.addr)),
+            25_000,
+            "Notes",
+          )),
+        );
+      } catch {
+        /* skip */
+      }
+    }
+  }
+
+  const queue: Array<{
+    note: NoteView;
+    title: string;
+    body: string;
+  }> = [];
+
+  for (const note of notes) {
+    if (getAddress(note.owner) !== ownerAddress) continue;
+    if (allEndorsements.some((e) => e.nid === note.nid)) continue;
+    try {
+      const content = await openNoteContent(vaultKey, note.payload);
+      queue.push({
+        note,
+        title: content.title,
+        body: content.body,
+      });
+    } catch {
+      queue.push({
+        note,
+        title: `(sealed · ${note.nid})`,
+        body: "Could not decrypt preview — you can still Approve.",
+      });
+    }
+  }
+
+  queue.sort((a, b) => (b.note.createdat ?? 0) - (a.note.createdat ?? 0));
+  return queue;
+}
+
 export async function verifyEntity(entityKey: string) {
   const res = await fetch(
     `/api/vault/entity?key=${encodeURIComponent(entityKey)}`,

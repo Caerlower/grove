@@ -1904,6 +1904,22 @@ a {
   font-size: 0.85rem;
 }
 
+.mcp-queue-wrap {
+  border-top: 1px solid var(--line);
+  padding-top: 1rem;
+}
+
+.mcp-queue-head {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.mcp-queue-connect {
+  margin-top: 0.5rem;
+}
+
 @keyframes mcp-in {
   from {
     opacity: 0;
