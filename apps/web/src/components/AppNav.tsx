@@ -6,6 +6,7 @@ import { ConnectWallet } from "@/components/ConnectWallet";
 
 const links = [
   { href: "/app/live", label: "Live" },
+  { href: "/app/mcp", label: "MCP" },
   { href: "/app", label: "Vault", exact: true, hash: "#constellation" },
   { href: "/app/pending", label: "Pending" },
   { href: "/app/agents", label: "Agents" },

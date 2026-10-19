@@ -183,6 +183,7 @@ pnpm probe               # appends to arkiv/friction.md
 | `/app` | Vault graph + library |
 | `/app/verify` | `$creator` / hash without vault key |
 | `/app/agents` | Allowlist + trust tiers |
+| `/app/mcp` | How to connect remote MCP (Claude.ai, Cursor, …) |
 
 See [Try the live demo](#try-the-live-demo-no-local-setup) for the hosted path. `/api/vault/*` uses server-side `ARKIV_API_KEY` so the browser does not hit the anonymous RPC budget. Demo unlock uses `DEMO_VAULT_KEY` on the server only — never ship a real vault key as `NEXT_PUBLIC_*`.
 
@@ -197,6 +198,24 @@ See [Try the live demo](#try-the-live-demo-no-local-setup) for the hosted path. 
 | `grove_search` | Scoped / blind-tag search |
 | `grove_my_status` | Allowlist / tier |
 | `grove_trust_report` | Endorsement stats |
+
+### Remote (Claude.ai, Cursor, ChatGPT-capable clients)
+
+Hosted endpoint (after Vercel deploy):
+
+```text
+https://<your-vercel-host>/api/mcp
+```
+
+- **Claude.ai:** Settings → Connectors → add custom connector → paste that URL (public HTTPS required; localhost will not work from claude.ai).
+- **Cursor:** add an MCP server with `"url": "https://<host>/api/mcp"`, or `npx -y mcp-remote https://<host>/api/mcp` if your build needs a stdio proxy.
+- **Claude Desktop / other stdio clients:** same `mcp-remote` command.
+- **ChatGPT:** only where OpenAI exposes remote MCP connectors (plan-dependent). Same URL when supported.
+- Optional shared secret: set `MCP_SHARED_SECRET` and send `Authorization: Bearer <secret>`.
+
+In-app instructions: `/app/mcp`. Local stdio still works with `pnpm mcp` / `.mcp.json`.
+
+MCP writes hand off to the **configured** vault owner (`NEXT_PUBLIC_OWNER_ADDRESS`). Endorse those drafts in the web UI (or owner CLI) with a wallet.
 
 ---
 
