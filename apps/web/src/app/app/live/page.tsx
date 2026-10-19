@@ -5,6 +5,7 @@ import Link from "next/link";
 import type { NoteView } from "@grove/core";
 import { ConnectWallet } from "@/components/ConnectWallet";
 import { PageHeader } from "@/components/PageHeader";
+import { WalletTxHint } from "@/components/WalletTxHint";
 import { allowAgentWithWallet, endorseWithWallet } from "@/lib/browser-arkiv";
 import { publicConfig } from "@/lib/config";
 import { loadNoteByNid } from "@/lib/grove-client";
@@ -477,6 +478,7 @@ export default function LivePlaygroundPage() {
                   {publicConfig.agentAAddress ||
                     "(set NEXT_PUBLIC_AGENT_A_ADDRESS)"}
                 </p>
+                <WalletTxHint />
                 <div className="sheet-actions">
                   <button
                     type="button"
@@ -834,6 +836,7 @@ export default function LivePlaygroundPage() {
                   </div>
                 ) : (
                   <div className="endorse-actions">
+                    <WalletTxHint />
                     <button
                       type="button"
                       disabled={!!busy || !note}

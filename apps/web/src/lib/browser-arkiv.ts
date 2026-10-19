@@ -46,6 +46,12 @@ export async function endorseWithWallet(
   decision: "approve" | "reject",
   ownerAddress: string,
 ) {
+  if (getAddress(note.owner) !== getAddress(ownerAddress)) {
+    throw new Error(
+      `Connected wallet ${ownerAddress} is not note owner ${note.owner}. Notes must be handed off to your address.`,
+    );
+  }
+
   const decidedat = Math.floor(Date.now() / 1000);
   const payloadSha256 = await sha256Hex(note.payload);
   const created = await wallet.createEntity(
@@ -74,13 +80,6 @@ export async function endorseWithWallet(
       });
       txHashes.push(ext.txHash);
     }
-  }
-
-  // silence unused — owner must match note.owner
-  if (getAddress(note.owner) !== getAddress(ownerAddress)) {
-    throw new Error(
-      `Connected wallet ${ownerAddress} is not note owner ${note.owner}. Notes must be handed off to your address.`,
-    );
   }
 
   return { endorsementKey: created.entityKey, txHashes };

@@ -1925,6 +1925,28 @@ a {
   border-top: 1px solid var(--line);
 }
 
+.wallet-tx-hint {
+  margin: 0.85rem 0;
+  padding: 0.75rem 0.9rem;
+  border-radius: 0.75rem;
+  border: 1px solid #f5d0b5;
+  background: #fff8f3;
+}
+
+.wallet-tx-hint-title {
+  margin: 0;
+  font-size: 0.85rem;
+  font-weight: 650;
+  color: #9a3412;
+}
+
+.wallet-tx-hint-copy {
+  margin: 0.35rem 0 0;
+  font-size: 0.8rem;
+  line-height: 1.45;
+  color: #7c2d12;
+}
+
 @keyframes mcp-in {
   from {
     opacity: 0;
