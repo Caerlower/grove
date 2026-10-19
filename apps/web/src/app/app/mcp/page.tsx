@@ -123,7 +123,19 @@ export default function McpConnectPage() {
           <h2 className="sheet-title">Claude.ai</h2>
           <ol className="mt-3 list-decimal space-y-2 pl-5 text-sm text-[var(--mute)]">
             <li>Settings → Connectors → add custom connector.</li>
-            <li>Paste the MCP URL. Auth empty unless MCP_SHARED_SECRET is set.</li>
+            <li>
+              Paste <code className="font-mono">{mcpUrl}</code> (exactly, no
+              trailing slash).
+            </li>
+            <li>
+              Leave OAuth Client ID / Secret empty. Claude may open a short demo
+              “Approve” page from Grove, then return — that is expected.
+            </li>
+            <li>
+              Do not set <code className="font-mono">MCP_SHARED_SECRET</code> on
+              Vercel if you want Claude.ai to connect (it forces a broken auth
+              path).
+            </li>
             <li>Paste the ask prompt below (includes your wallet).</li>
           </ol>
 

@@ -208,11 +208,10 @@ Hosted endpoint (after Vercel deploy):
 https://<your-vercel-host>/api/mcp
 ```
 
-- **Claude.ai:** Settings → Connectors → add custom connector → paste that URL (public HTTPS required; localhost will not work from claude.ai).
+- **Claude.ai:** Settings → Connectors → add custom connector → paste that URL (public HTTPS required; localhost will not work from claude.ai). Leave OAuth Client ID empty; Claude may complete a short demo OAuth approve page hosted by Grove (`/api/oauth/*`). Do not set `MCP_SHARED_SECRET` on the deploy if you need Claude.ai.
 - **Cursor:** add an MCP server with `"url": "https://<host>/api/mcp"`, or `npx -y mcp-remote https://<host>/api/mcp` if your build needs a stdio proxy.
 - **Claude Desktop / other stdio clients:** same `mcp-remote` command.
 - **ChatGPT:** only where OpenAI exposes remote MCP connectors (plan-dependent). Same URL when supported.
-- Optional shared secret: set `MCP_SHARED_SECRET` and send `Authorization: Bearer <secret>`.
 
 In-app instructions: `/app/mcp`. Local stdio still works with `pnpm mcp` / `.mcp.json`.
 
