@@ -71,6 +71,10 @@ export default function LivePlaygroundPage() {
   const [fromMcp, setFromMcp] = useState(false);
   const [bootstrappedNid, setBootstrappedNid] = useState(false);
   const [watchingMcp, setWatchingMcp] = useState(false);
+  const [mcpBind, setMcpBind] = useState<
+    "idle" | "binding" | "ready" | "error"
+  >("idle");
+  const [mcpBindError, setMcpBindError] = useState<string | null>(null);
 
   const push = useCallback((text: string, links?: ActivityLink[]) => {
     setLog((prev) =>
@@ -162,28 +166,61 @@ export default function LivePlaygroundPage() {
 
   // Bind connected wallet as default MCP write owner (durable on Arkiv).
   useEffect(() => {
-    if (!address) return;
+    if (!address) {
+      setMcpBind("idle");
+      setMcpBindError(null);
+      return;
+    }
     let cancelled = false;
-    void fetch("/api/mcp/bind-owner", {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ address }),
-    })
-      .then(async (r) => {
-        const data = (await r.json()) as {
+    setMcpBind("binding");
+    setMcpBindError(null);
+
+    async function bindAndConfirm() {
+      try {
+        const res = await fetch("/api/mcp/bind-owner", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ address }),
+          keepalive: true,
+        });
+        const data = (await res.json()) as {
           ownerAddress?: string;
           error?: string;
         };
         if (cancelled) return;
-        if (!r.ok) {
-          push(`MCP owner bind failed: ${data.error ?? r.status}`);
-          return;
+        if (!res.ok) {
+          throw new Error(data.error ?? `bind failed (${res.status})`);
         }
-        push(`MCP writes will hand off to ${data.ownerAddress ?? address}`);
-      })
-      .catch((e) => {
-        if (!cancelled) push(`MCP owner bind failed: ${String(e)}`);
-      });
+        // Confirm readable from another path (what Claude’s MCP instance uses).
+        for (let i = 0; i < 8; i++) {
+          if (cancelled) return;
+          const check = await fetch("/api/mcp/bind-owner", {
+            cache: "no-store",
+          });
+          const body = (await check.json()) as { ownerAddress?: string | null };
+          if (
+            body.ownerAddress &&
+            body.ownerAddress.toLowerCase() === address!.toLowerCase()
+          ) {
+            setMcpBind("ready");
+            push(`MCP ready · writes hand off to ${body.ownerAddress}`);
+            return;
+          }
+          await new Promise((r) => setTimeout(r, 800));
+        }
+        setMcpBind("ready");
+        push(
+          `MCP bind submitted for ${data.ownerAddress ?? address} (index may lag a few seconds)`,
+        );
+      } catch (e) {
+        if (cancelled) return;
+        setMcpBind("error");
+        setMcpBindError(String(e));
+        push(`MCP owner bind failed: ${String(e)}`);
+      }
+    }
+
+    void bindAndConfirm();
     return () => {
       cancelled = true;
     };
@@ -611,17 +648,53 @@ export default function LivePlaygroundPage() {
                     <p className="sheet-label">Option A · Recommended</p>
                     <h3 className="write-path-title">Write via Grove MCP</h3>
                     <p className="sheet-copy">
-                      Connect Claude (or Cursor) once, then ask it to call{" "}
-                      <code className="font-mono">grove_write_note</code>. Stay
-                      on this page — when the draft lands, Live jumps to Endorse
-                      automatically.
+                      Wait for <strong>MCP ready</strong>, then ask Claude to
+                      call <code className="font-mono">grove_write_note</code>{" "}
+                      (no ownerAddress). Stay here — Endorse opens when the
+                      draft lands.
+                    </p>
+                    <p className="d-data mt-2">
+                      {mcpBind === "ready" && (
+                        <span className="d-chip ok">MCP ready · {address}</span>
+                      )}
+                      {mcpBind === "binding" && (
+                        <span className="d-chip warn">Binding wallet…</span>
+                      )}
+                      {mcpBind === "error" && (
+                        <span className="d-chip bad">
+                          Bind failed{mcpBindError ? ` · ${mcpBindError}` : ""}
+                        </span>
+                      )}
+                      {mcpBind === "idle" && (
+                        <span className="d-chip">Connect wallet first</span>
+                      )}
                     </p>
                     <div className="sheet-actions">
                       <Link href="/app/mcp" className="d-btn d-btn-signal">
                         How to connect MCP
                       </Link>
+                      {mcpBind === "error" && (
+                        <button
+                          type="button"
+                          className="d-btn d-btn-line"
+                          onClick={() => {
+                            if (!address) return;
+                            setMcpBind("binding");
+                            void fetch("/api/mcp/bind-owner", {
+                              method: "POST",
+                              headers: { "content-type": "application/json" },
+                              body: JSON.stringify({ address }),
+                            }).then(async (r) => {
+                              if (r.ok) setMcpBind("ready");
+                              else setMcpBind("error");
+                            });
+                          }}
+                        >
+                          Retry bind
+                        </button>
+                      )}
                     </div>
-                    {watchingMcp && (
+                    {watchingMcp && mcpBind === "ready" && (
                       <p className="sheet-copy mt-2 text-xs">
                         Watching for a draft owned by your wallet…
                       </p>

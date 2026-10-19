@@ -144,7 +144,7 @@ async function handle(req: Request): Promise<Response> {
   const ownerFromToken = ownerFromAccessToken(bearer) ?? undefined;
 
   const server = new McpServer({ name: "grove", version: "0.1.0" });
-  registerGroveMcpTools(server as never);
+  await registerGroveMcpTools(server as never);
 
   const transport = new WebStandardStreamableHTTPServerTransport({
     sessionIdGenerator: undefined,

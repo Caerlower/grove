@@ -43,9 +43,15 @@ function mcpEnv() {
 }
 
 /** Register Grove tools on an MCP server (HTTP via mcp-handler). */
-export function registerGroveMcpTools(server: ToolServer) {
+export async function registerGroveMcpTools(server: ToolServer) {
   // Do not call mcpEnv() at register time — initialize must succeed even if
   // secrets are briefly unavailable; tool calls load env lazily.
+  let boundHint = "none";
+  try {
+    boundHint = (await getBoundMcpOwner({ retries: 1, delayMs: 0 })) ?? "none";
+  } catch {
+    boundHint = "none";
+  }
 
   server.tool(
     "grove_help",
@@ -55,7 +61,11 @@ export function registerGroveMcpTools(server: ToolServer) {
       content: [
         {
           type: "text",
-          text: JSON.stringify(GROVE_MCP_HELP, null, 2),
+          text: JSON.stringify(
+            { ...GROVE_MCP_HELP, boundOwner: boundHint },
+            null,
+            2,
+          ),
         },
       ],
     }),
@@ -63,7 +73,7 @@ export function registerGroveMcpTools(server: ToolServer) {
 
   server.tool(
     "grove_write_note",
-    "Write a sealed draft note into the Grove vault. Do NOT ask for an owner address — ownership defaults to the wallet bound in Grove. The user endorses in Grove Live when they return.",
+    `Write a sealed draft into the Grove vault. Do NOT pass ownerAddress. Bound endorse wallet right now: ${boundHint}. If boundOwner is none, tell the user to open Grove Live, connect their wallet, wait until Live says MCP is ready, then retry.`,
     {
       title: z.string().min(1).max(200),
       body: z.string().min(1).max(20_000),
@@ -80,7 +90,7 @@ export function registerGroveMcpTools(server: ToolServer) {
     async ({ title, body, tags, links, ownerAddress }) => {
       const env = mcpEnv();
       const fromToken = getMcpRequestOwner();
-      const fromBind = await getBoundMcpOwner();
+      const fromBind = await getBoundMcpOwner({ retries: 5, delayMs: 800 });
       let resolvedOwner: string | null = null;
       if (ownerAddress) {
         resolvedOwner = getAddress(ownerAddress);
@@ -101,7 +111,7 @@ export function registerGroveMcpTools(server: ToolServer) {
                 {
                   error: "no_bound_owner",
                   message:
-                    "No wallet bound for MCP writes. Open Grove Live, connect the endorse wallet, wait a moment, then retry grove_write_note without ownerAddress.",
+                    "No wallet bound for MCP writes. In Grove Live: connect the endorse wallet and wait until the UI shows “MCP ready”. Then retry grove_write_note without ownerAddress. Or reconnect the Claude connector and connect the wallet on Grove’s consent page.",
                 },
                 null,
                 2,
