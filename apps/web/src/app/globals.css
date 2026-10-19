@@ -1276,34 +1276,59 @@ a {
   min-height: calc(100dvh - 6.5rem);
 }
 
-.gate-board {
+.gate-unlock {
+  display: flex;
+  justify-content: center;
+  padding: 0.25rem 0 1.5rem;
+}
+
+.gate-unlock-card {
+  width: min(32rem, 100%);
+  overflow: visible;
+}
+
+.gate-unlock-pad {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+.gate-tabs {
   display: grid;
-  gap: 0.85rem;
-  min-height: calc(100dvh - 10rem);
-  align-content: stretch;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.35rem;
+  margin-top: 1rem;
+  padding: 0.3rem;
+  border-radius: 999px;
+  background: #f1f5f9;
+  border: 1px solid var(--line);
 }
 
-@media (min-width: 860px) {
-  .gate-board {
-    grid-template-columns: 1fr 1fr;
-  }
+.gate-tab {
+  height: 2.2rem;
+  border: none;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--mute);
+  font-family: var(--font-ui);
+  font-size: 0.85rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 160ms var(--ease), color 160ms var(--ease);
 }
 
-.gate-panel {
-  display: flex;
-  flex-direction: column;
-  min-height: 16rem;
+.gate-tab.is-on {
+  background: #fff;
+  color: var(--ink);
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.08);
 }
 
-.gate-panel .sheet-pad {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
+.gate-panel-body {
+  margin-top: 1rem;
 }
 
-.gate-panel .sheet-actions {
-  margin-top: auto;
-  padding-top: 1.25rem;
+.gate-panel-body .sheet-actions {
+  margin-top: 1rem;
 }
 
 .desk-head {
@@ -1460,8 +1485,9 @@ a {
   min-height: calc(100dvh - 6.5rem);
 }
 
+/* Only lock the viewport once unlocked — unlock UI must not clip CTAs */
 @media (min-width: 960px) {
-  .vault-page {
+  .vault-page:has(.key-gate-live) {
     height: calc(100dvh - 6.5rem);
     max-height: calc(100dvh - 6.5rem);
     overflow: hidden;
@@ -1653,9 +1679,248 @@ a {
   color: var(--ink);
 }
 
+/* —— MCP connect —— */
+.mcp-page {
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+  padding-bottom: 2rem;
+}
+
+.mcp-stage {
+  display: grid;
+  gap: 0.85rem;
+  align-items: start;
+}
+
 @media (min-width: 900px) {
-  .write-paths {
-    grid-template-columns: 1fr;
+  .mcp-stage {
+    grid-template-columns: minmax(15rem, 18rem) minmax(0, 1fr);
+  }
+}
+
+.mcp-rail {
+  position: sticky;
+  top: 5.25rem;
+}
+
+.mcp-rail-pad {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.mcp-rail-title {
+  font-family: var(--font-data);
+  font-size: 1.15rem;
+  font-weight: 700;
+  letter-spacing: -0.04em;
+  line-height: 1.2;
+  color: var(--ink);
+}
+
+.mcp-client-list {
+  list-style: none;
+  margin: 0.85rem 0 0;
+  padding: 0;
+  display: grid;
+  gap: 0.4rem;
+}
+
+.mcp-client {
+  width: 100%;
+  text-align: left;
+  padding: 0.75rem 0.85rem;
+  border-radius: 0.9rem;
+  border: 1px solid var(--line);
+  background: #f8fafc;
+  cursor: pointer;
+  transition:
+    border-color 160ms var(--ease),
+    background 160ms var(--ease),
+    transform 160ms var(--ease);
+}
+
+.mcp-client:hover {
+  border-color: var(--line-2);
+  background: #fff;
+}
+
+.mcp-client.is-on {
+  border-color: var(--signal);
+  background: var(--signal-soft);
+  transform: translateY(-1px);
+}
+
+.mcp-client-name {
+  display: block;
+  font-family: var(--font-data);
+  font-size: 0.95rem;
+  font-weight: 650;
+  letter-spacing: -0.03em;
+  color: var(--ink);
+}
+
+.mcp-client-blurb {
+  display: block;
+  margin-top: 0.15rem;
+  font-size: 0.75rem;
+  color: var(--mute);
+}
+
+.mcp-main {
+  display: grid;
+  gap: 0.85rem;
+  min-width: 0;
+}
+
+.mcp-hero-top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.mcp-url-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.55rem;
+  margin-top: 0.85rem;
+}
+
+.mcp-url {
+  flex: 1 1 14rem;
+  min-width: 0;
+  padding: 0.7rem 0.85rem;
+  border-radius: 0.85rem;
+  border: 1px solid var(--line-2);
+  background: #0f172a;
+  color: #e2e8f0;
+  font-family: var(--font-data);
+  font-size: 0.8rem;
+  word-break: break-all;
+}
+
+.mcp-stepper {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin-bottom: 1rem;
+}
+
+.mcp-step {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  height: 2.15rem;
+  padding: 0 0.85rem 0 0.35rem;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: #fff;
+  color: var(--mute);
+  font-family: var(--font-ui);
+  font-size: 0.82rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 160ms var(--ease), border-color 160ms var(--ease), color 160ms var(--ease);
+}
+
+.mcp-step-n {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.45rem;
+  height: 1.45rem;
+  border-radius: 999px;
+  background: #f1f5f9;
+  font-family: var(--font-data);
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+
+.mcp-step.is-on {
+  border-color: var(--signal);
+  color: var(--ink);
+  background: var(--signal-soft);
+}
+
+.mcp-step.is-on .mcp-step-n {
+  background: var(--signal);
+  color: #fff;
+}
+
+.mcp-panel {
+  animation: mcp-in 220ms var(--ease) both;
+}
+
+.mcp-panel-title {
+  font-family: var(--font-data);
+  font-size: 1.05rem;
+  font-weight: 700;
+  letter-spacing: -0.035em;
+  color: var(--ink);
+}
+
+.mcp-ol {
+  margin: 0.75rem 0 0;
+  padding-left: 1.15rem;
+  color: var(--mute);
+  font-size: 0.9rem;
+  line-height: 1.55;
+}
+
+.mcp-ol li + li {
+  margin-top: 0.35rem;
+}
+
+.mcp-pre {
+  margin-top: 0.75rem;
+  max-height: 14rem;
+  overflow: auto;
+  padding: 0.85rem 1rem;
+  border-radius: 0.9rem;
+  border: 1px solid #1e293b;
+  background: #0f172a;
+  color: #e2e8f0;
+  font-family: var(--font-data);
+  font-size: 0.75rem;
+  line-height: 1.45;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.mcp-pre-prompt {
+  max-height: none;
+}
+
+.mcp-warn {
+  margin-top: 0.65rem;
+  padding: 0.55rem 0.75rem;
+  border-radius: 0.75rem;
+  background: #fff7ed;
+  border: 1px solid #fed7aa;
+  color: var(--warn);
+  font-size: 0.85rem;
+}
+
+@keyframes mcp-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mcp-panel {
+    animation: none;
+  }
+  .mcp-client.is-on {
+    transform: none;
   }
 }
 

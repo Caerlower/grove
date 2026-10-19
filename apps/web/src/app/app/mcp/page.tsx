@@ -1,35 +1,63 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { PageHeader } from "@/components/PageHeader";
 import { useArkivWallet } from "@/lib/useArkivWallet";
 
+type ClientId = "claude" | "cursor" | "desktop" | "chatgpt";
+
+const CLIENTS: Array<{
+  id: ClientId;
+  name: string;
+  blurb: string;
+}> = [
+  {
+    id: "claude",
+    name: "Claude.ai",
+    blurb: "Custom connector · public HTTPS",
+  },
+  {
+    id: "cursor",
+    name: "Cursor",
+    blurb: "Remote URL in mcp.json",
+  },
+  {
+    id: "desktop",
+    name: "Claude Desktop",
+    blurb: "mcp-remote stdio bridge",
+  },
+  {
+    id: "chatgpt",
+    name: "ChatGPT",
+    blurb: "Where MCP connectors exist",
+  },
+];
+
 export default function McpConnectPage() {
   const { address, isConnected } = useArkivWallet();
-  const origin =
-    typeof window !== "undefined" ? window.location.origin : "https://YOUR_HOST";
-  const mcpUrl = `${origin}/api/mcp`;
+  const [origin, setOrigin] = useState("https://YOUR_HOST");
+  const [client, setClient] = useState<ClientId>("claude");
   const [copied, setCopied] = useState<string | null>(null);
+  const [step, setStep] = useState(0);
 
+  useEffect(() => {
+    setOrigin(window.location.origin);
+  }, []);
+
+  const mcpUrl = `${origin}/api/mcp`;
   const ownerHint = address ?? "0xYOUR_CONNECTED_WALLET";
 
   const askPrompt = useMemo(
     () =>
-      `Use grove_write_note to create a sealed Grove note titled "Field brief" with a short synthetic body about Tiramisu handoff. Set ownerAddress to ${ownerHint}. Return the nid when done.`,
+      `Call grove_help first if you need the tool list. Then use grove_write_note with title "Field brief", a short synthetic body about Tiramisu handoff, and ownerAddress ${ownerHint}. Return the nid.`,
     [ownerHint],
   );
 
   const cursorSnippet = useMemo(
     () =>
       JSON.stringify(
-        {
-          mcpServers: {
-            grove: {
-              url: mcpUrl,
-            },
-          },
-        },
+        { mcpServers: { grove: { url: mcpUrl } } },
         null,
         2,
       ),
@@ -57,146 +85,234 @@ export default function McpConnectPage() {
     try {
       await navigator.clipboard.writeText(text);
       setCopied(label);
-      setTimeout(() => setCopied(null), 1500);
+      window.setTimeout(() => setCopied(null), 1400);
     } catch {
       /* ignore */
     }
   }
 
   return (
-    <div className="desk-grid desk-fill">
+    <div className="mcp-page">
       <PageHeader title="Connect MCP">
-        Write sealed notes from Claude.ai, Cursor, ChatGPT, or Desktop — then
-        endorse in{" "}
-        <Link href="/app/live">Live</Link>.
+        Pick a client, copy the endpoint, ask it to write — then{" "}
+        <Link href="/app/live">endorse in Live</Link>.
       </PageHeader>
 
-      <section className="sheet">
-        <div className="sheet-pad">
-          <p className="sheet-label">Which AI?</p>
-          <h2 className="sheet-title">Same Grove tools, many clients</h2>
-          <p className="sheet-copy">
-            Connect any MCP-capable client to the URL below. They all call the
-            same tools (<code className="font-mono">grove_write_note</code>,{" "}
-            <code className="font-mono">grove_read_note</code>, …). Pass your
-            Live wallet as <code className="font-mono">ownerAddress</code> so
-            the note lands in your Vault after you Approve.
-          </p>
-          <ul className="mt-3 flex flex-wrap gap-2">
-            <li className="d-chip">Claude.ai</li>
-            <li className="d-chip">Cursor</li>
-            <li className="d-chip">Claude Desktop</li>
-            <li className="d-chip">ChatGPT*</li>
-            <li className="d-chip">Other MCP clients</li>
-          </ul>
-          <p className="sheet-copy mt-2 text-xs">
-            *ChatGPT only where remote MCP connectors are enabled on the
-            account.
-          </p>
-        </div>
-      </section>
-
-      <section className="sheet">
-        <div className="sheet-pad">
-          <p className="sheet-label">1 · Endpoint</p>
-          <h2 className="sheet-title">Remote MCP URL</h2>
-          <p className="sheet-copy">
-            Claude.ai needs public HTTPS (Vercel). Localhost works for Cursor /
-            Desktop on your machine.
-          </p>
-          <p className="d-data mt-3 break-all">{mcpUrl}</p>
-          <div className="sheet-actions">
-            <button
-              type="button"
-              className="d-btn d-btn-signal"
-              onClick={() => void copy("url", mcpUrl)}
-            >
-              {copied === "url" ? "Copied" : "Copy URL"}
-            </button>
+      <div className="mcp-stage">
+        <aside className="mcp-rail sheet" aria-label="Clients">
+          <div className="sheet-pad mcp-rail-pad">
+            <p className="sheet-label">Client</p>
+            <h2 className="mcp-rail-title">Where will you write from?</h2>
+            <ul className="mcp-client-list">
+              {CLIENTS.map((c) => (
+                <li key={c.id}>
+                  <button
+                    type="button"
+                    className={
+                      client === c.id ? "mcp-client is-on" : "mcp-client"
+                    }
+                    onClick={() => {
+                      setClient(c.id);
+                      setStep(0);
+                    }}
+                  >
+                    <span className="mcp-client-name">{c.name}</span>
+                    <span className="mcp-client-blurb">{c.blurb}</span>
+                  </button>
+                </li>
+              ))}
+            </ul>
           </div>
-        </div>
-      </section>
+        </aside>
 
-      <section className="sheet">
-        <div className="sheet-pad">
-          <p className="sheet-label">2 · Connect</p>
-          <h2 className="sheet-title">Claude.ai</h2>
-          <ol className="mt-3 list-decimal space-y-2 pl-5 text-sm text-[var(--mute)]">
-            <li>Settings → Connectors → add custom connector.</li>
-            <li>
-              Paste <code className="font-mono">{mcpUrl}</code> (exactly, no
-              trailing slash).
-            </li>
-            <li>
-              Leave OAuth Client ID / Secret empty. Claude may open a short demo
-              “Approve” page from Grove, then return — that is expected.
-            </li>
-            <li>
-              Do not set <code className="font-mono">MCP_SHARED_SECRET</code> on
-              Vercel if you want Claude.ai to connect (it forces a broken auth
-              path).
-            </li>
-            <li>Paste the ask prompt below (includes your wallet).</li>
-          </ol>
+        <div className="mcp-main">
+          <section className="mcp-hero sheet">
+            <div className="sheet-pad">
+              <div className="mcp-hero-top">
+                <div>
+                  <p className="sheet-label">Endpoint</p>
+                  <h2 className="sheet-title">Remote MCP URL</h2>
+                </div>
+                <span className="d-chip ok">live</span>
+              </div>
+              <div className="mcp-url-row">
+                <code className="mcp-url">{mcpUrl}</code>
+                <button
+                  type="button"
+                  className="d-btn d-btn-signal"
+                  onClick={() => void copy("url", mcpUrl)}
+                >
+                  {copied === "url" ? "Copied" : "Copy URL"}
+                </button>
+              </div>
+              <p className="sheet-copy mt-2">
+                Claude.ai needs this public HTTPS host. Cursor / Desktop can use
+                localhost while developing.
+              </p>
+            </div>
+          </section>
 
-          <h3 className="write-path-title mt-6">Cursor</h3>
-          <pre className="mt-2 overflow-auto rounded-xl border border-[var(--line)] bg-[#f8fafc] p-3 font-mono text-xs">
-            {cursorSnippet}
-          </pre>
-          <p className="sheet-copy mt-2">Stdio proxy if needed:</p>
-          <pre className="mt-2 overflow-auto rounded-xl border border-[var(--line)] bg-[#f8fafc] p-3 font-mono text-xs">
-            {remoteSnippet}
-          </pre>
-          <div className="sheet-actions">
-            <button
-              type="button"
-              className="d-btn d-btn-line"
-              onClick={() => void copy("cursor", cursorSnippet)}
-            >
-              {copied === "cursor" ? "Copied" : "Copy Cursor config"}
-            </button>
-          </div>
-        </div>
-      </section>
+          <section className="mcp-steps sheet" key={client}>
+            <div className="sheet-pad">
+              <div className="mcp-stepper" role="tablist" aria-label="Setup steps">
+                {["Connect", "Ask", "Endorse"].map((label, i) => (
+                  <button
+                    key={label}
+                    type="button"
+                    role="tab"
+                    aria-selected={step === i}
+                    className={step === i ? "mcp-step is-on" : "mcp-step"}
+                    onClick={() => setStep(i)}
+                  >
+                    <span className="mcp-step-n">{i + 1}</span>
+                    {label}
+                  </button>
+                ))}
+              </div>
 
-      <section className="sheet">
-        <div className="sheet-pad">
-          <p className="sheet-label">Help</p>
-          <h2 className="sheet-title">grove_help</h2>
-          <p className="sheet-copy">
-            Ask the connected AI:{" "}
-            <code className="font-mono">Call grove_help</code>. It returns every
-            tool with a one-line explanation, plus write tips.
-          </p>
-        </div>
-      </section>
+              {step === 0 && (
+                <div className="mcp-panel">
+                  {client === "claude" && (
+                    <>
+                      <h3 className="mcp-panel-title">Claude.ai connector</h3>
+                      <ol className="mcp-ol">
+                        <li>Settings → Connectors → Add custom connector</li>
+                        <li>Paste the URL above (no trailing slash)</li>
+                        <li>
+                          Leave OAuth Client ID empty — a short Grove approve
+                          page is normal
+                        </li>
+                        <li>
+                          Avoid <code className="font-mono">MCP_SHARED_SECRET</code>{" "}
+                          on Vercel for Claude.ai
+                        </li>
+                      </ol>
+                    </>
+                  )}
+                  {client === "cursor" && (
+                    <>
+                      <h3 className="mcp-panel-title">Cursor mcp.json</h3>
+                      <pre className="mcp-pre">{cursorSnippet}</pre>
+                      <div className="sheet-actions">
+                        <button
+                          type="button"
+                          className="d-btn d-btn-line"
+                          onClick={() => void copy("cursor", cursorSnippet)}
+                        >
+                          {copied === "cursor" ? "Copied" : "Copy config"}
+                        </button>
+                      </div>
+                    </>
+                  )}
+                  {client === "desktop" && (
+                    <>
+                      <h3 className="mcp-panel-title">Claude Desktop</h3>
+                      <p className="sheet-copy">
+                        Bridge Streamable HTTP through mcp-remote:
+                      </p>
+                      <pre className="mcp-pre">{remoteSnippet}</pre>
+                      <div className="sheet-actions">
+                        <button
+                          type="button"
+                          className="d-btn d-btn-line"
+                          onClick={() => void copy("remote", remoteSnippet)}
+                        >
+                          {copied === "remote" ? "Copied" : "Copy config"}
+                        </button>
+                      </div>
+                    </>
+                  )}
+                  {client === "chatgpt" && (
+                    <>
+                      <h3 className="mcp-panel-title">ChatGPT</h3>
+                      <p className="sheet-copy">
+                        Use the same HTTPS URL wherever ChatGPT exposes remote
+                        MCP connectors (plan-dependent). If connectors are not
+                        available, use Claude.ai or Cursor for the demo.
+                      </p>
+                    </>
+                  )}
+                  <div className="sheet-actions">
+                    <button
+                      type="button"
+                      className="d-btn d-btn-signal"
+                      onClick={() => setStep(1)}
+                    >
+                      Next · Ask the AI
+                    </button>
+                  </div>
+                </div>
+              )}
 
-      <section className="sheet">
-        <div className="sheet-pad">
-          <p className="sheet-label">3 · Ask the AI to write</p>
-          <h2 className="sheet-title">Example prompt</h2>
-          {!isConnected && (
-            <p className="sheet-copy">
-              Connect your wallet in Live first so we can fill ownerAddress.
-            </p>
-          )}
-          <pre className="mt-3 overflow-auto whitespace-pre-wrap rounded-xl border border-[var(--line)] bg-[#f8fafc] p-3 font-mono text-xs">
-            {askPrompt}
-          </pre>
-          <div className="sheet-actions">
-            <button
-              type="button"
-              className="d-btn d-btn-signal"
-              onClick={() => void copy("ask", askPrompt)}
-            >
-              {copied === "ask" ? "Copied" : "Copy ask prompt"}
-            </button>
-            <Link href="/app/live" className="d-btn d-btn-line">
-              Back to Live · Endorse
-            </Link>
-          </div>
+              {step === 1 && (
+                <div className="mcp-panel">
+                  <h3 className="mcp-panel-title">Prompt to paste</h3>
+                  {!isConnected && (
+                    <p className="mcp-warn">
+                      Connect your wallet in Live so ownerAddress is filled.
+                    </p>
+                  )}
+                  <pre className="mcp-pre mcp-pre-prompt">{askPrompt}</pre>
+                  <div className="sheet-actions">
+                    <button
+                      type="button"
+                      className="d-btn d-btn-signal"
+                      onClick={() => void copy("ask", askPrompt)}
+                    >
+                      {copied === "ask" ? "Copied" : "Copy prompt"}
+                    </button>
+                    <button
+                      type="button"
+                      className="d-btn d-btn-line"
+                      onClick={() =>
+                        void copy(
+                          "help",
+                          "Call grove_help and summarize the tools in one line each.",
+                        )
+                      }
+                    >
+                      {copied === "help" ? "Copied" : "Copy grove_help ask"}
+                    </button>
+                    <button
+                      type="button"
+                      className="d-btn d-btn-line"
+                      onClick={() => setStep(2)}
+                    >
+                      Next · Endorse
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {step === 2 && (
+                <div className="mcp-panel">
+                  <h3 className="mcp-panel-title">Approve in Live</h3>
+                  <p className="sheet-copy">
+                    When the AI returns a <code className="font-mono">nid</code>,
+                    open Live with the same wallet, finish Endorse → Approve.
+                    The note then appears in your Vault.
+                  </p>
+                  <div className="sheet-actions">
+                    <Link href="/app/live" className="d-btn d-btn-signal">
+                      Open Live
+                    </Link>
+                    <Link href="/app" className="d-btn d-btn-line">
+                      Open Vault
+                    </Link>
+                    <button
+                      type="button"
+                      className="d-btn d-btn-line"
+                      onClick={() => setStep(0)}
+                    >
+                      Back to connect
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          </section>
         </div>
-      </section>
+      </div>
     </div>
   );
 }

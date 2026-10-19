@@ -18,6 +18,7 @@ export function KeyGate({
   const [active, setActive] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [mode, setMode] = useState<"demo" | "manual">("demo");
 
   useEffect(() => {
     setActive(getSessionVaultKey());
@@ -43,55 +44,88 @@ export function KeyGate({
 
   if (!active) {
     return (
-      <section className="gate-board">
-        <div className="sheet gate-panel">
-          <div className="sheet-pad">
-            <p className="sheet-label">Access</p>
+      <section className="gate-unlock">
+        <div className="gate-unlock-card sheet">
+          <div className="sheet-pad gate-unlock-pad">
+            <p className="sheet-label">Vault access</p>
             <h2 className="sheet-title">{title}</h2>
             <p className="sheet-copy">
-              Decrypt stays in your browser. Keys live in sessionStorage except
-              the seeded demo unlock.
+              Decrypt runs in your browser. Demo unlock uses the seeded key on
+              the server; your own key stays in sessionStorage only.
             </p>
-            <div className="sheet-actions">
+
+            <div className="gate-tabs" role="tablist" aria-label="Unlock method">
               <button
                 type="button"
-                disabled={busy}
-                onClick={unlockDemo}
-                className="d-btn d-btn-signal"
+                role="tab"
+                aria-selected={mode === "demo"}
+                className={mode === "demo" ? "gate-tab is-on" : "gate-tab"}
+                onClick={() => setMode("demo")}
               >
-                {busy ? "Loading…" : "Unlock seeded demo"}
+                Seeded demo
               </button>
-            </div>
-          </div>
-        </div>
-        <div className="sheet gate-panel">
-          <div className="sheet-pad">
-            <p className="sheet-label">Manual</p>
-            <h2 className="sheet-title">Paste a vault key</h2>
-            <p className="sheet-copy">
-              Use your own key if you seeded locally or shared one out-of-band.
-            </p>
-            <input
-              className="d-field font-mono mt-3"
-              value={raw}
-              onChange={(e) => setRaw(e.target.value)}
-              placeholder="VAULT_KEY"
-              autoComplete="off"
-            />
-            <div className="sheet-actions">
               <button
                 type="button"
-                className="d-btn d-btn-line"
-                onClick={() => {
-                  if (!raw.trim()) return;
-                  setSessionVaultKey(raw);
-                  setActive(raw.trim());
-                }}
+                role="tab"
+                aria-selected={mode === "manual"}
+                className={mode === "manual" ? "gate-tab is-on" : "gate-tab"}
+                onClick={() => setMode("manual")}
               >
-                Unlock with key
+                Paste key
               </button>
             </div>
-            {error && <p className="mt-3 text-sm text-[var(--bad)]">{error}</p>}
+
+            {mode === "demo" ? (
+              <div className="gate-panel-body">
+                <p className="sheet-copy">
+                  One click for judges and demos. Same vault the Attack board
+                  seeds against.
+                </p>
+                <div className="sheet-actions">
+                  <button
+                    type="button"
+                    disabled={busy}
+                    onClick={() => void unlockDemo()}
+                    className="d-btn d-btn-signal"
+                  >
+                    {busy ? "Unlocking…" : "Unlock seeded demo"}
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="gate-panel-body">
+                <label className="block text-xs text-[var(--mute)]">
+                  Vault key
+                  <input
+                    className="d-field font-mono mt-1"
+                    value={raw}
+                    onChange={(e) => setRaw(e.target.value)}
+                    placeholder="VAULT_KEY"
+                    autoComplete="off"
+                  />
+                </label>
+                <div className="sheet-actions">
+                  <button
+                    type="button"
+                    className="d-btn d-btn-signal"
+                    disabled={!raw.trim()}
+                    onClick={() => {
+                      if (!raw.trim()) return;
+                      setSessionVaultKey(raw);
+                      setActive(raw.trim());
+                    }}
+                  >
+                    Unlock with key
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {error && (
+              <p className="mt-3 text-sm text-[var(--bad)]" role="alert">
+                {error}
+              </p>
+            )}
           </div>
         </div>
       </section>
