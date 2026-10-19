@@ -4,7 +4,6 @@ import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { ConnectWallet } from "@/components/ConnectWallet";
 import { KeyGate } from "@/components/KeyGate";
-import { WalletTxHint } from "@/components/WalletTxHint";
 import { endorseWithWallet } from "@/lib/browser-arkiv";
 import { loadOwnerDrafts } from "@/lib/grove-client";
 import { publicConfig } from "@/lib/config";
@@ -124,8 +123,6 @@ function OwnerDraftQueueInner({
       {loading && items.length === 0 && (
         <p className="d-empty mt-3">Looking for MCP drafts…</p>
       )}
-
-      {items.length > 0 && <WalletTxHint />}
 
       <ul className="d-rows mt-3">
         {!loading && items.length === 0 && (
