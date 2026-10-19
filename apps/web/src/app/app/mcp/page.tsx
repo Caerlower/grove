@@ -2,9 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { ConnectWallet } from "@/components/ConnectWallet";
 import { PageHeader } from "@/components/PageHeader";
-import { OwnerDraftQueue } from "@/components/OwnerDraftQueue";
 import { useArkivWallet } from "@/lib/useArkivWallet";
 
 type ClientId = "claude" | "cursor" | "desktop" | "chatgpt";
@@ -14,86 +12,37 @@ const CLIENTS: Array<{
   name: string;
   blurb: string;
 }> = [
-  {
-    id: "claude",
-    name: "Claude.ai",
-    blurb: "Custom connector · public HTTPS",
-  },
-  {
-    id: "cursor",
-    name: "Cursor",
-    blurb: "Remote URL in mcp.json",
-  },
-  {
-    id: "desktop",
-    name: "Claude Desktop",
-    blurb: "mcp-remote stdio bridge",
-  },
-  {
-    id: "chatgpt",
-    name: "ChatGPT",
-    blurb: "Where MCP connectors exist",
-  },
+  { id: "claude", name: "Claude.ai", blurb: "Custom connector" },
+  { id: "cursor", name: "Cursor", blurb: "mcp.json URL" },
+  { id: "desktop", name: "Claude Desktop", blurb: "mcp-remote" },
+  { id: "chatgpt", name: "ChatGPT", blurb: "Where supported" },
 ];
 
 export default function McpConnectPage() {
-  const { address, isConnected } = useArkivWallet();
+  const { address } = useArkivWallet();
   const [origin, setOrigin] = useState("https://YOUR_HOST");
   const [client, setClient] = useState<ClientId>("claude");
   const [copied, setCopied] = useState<string | null>(null);
-  const [step, setStep] = useState(0);
-  const [boundOwner, setBoundOwner] = useState<string | null>(null);
-  const [bindError, setBindError] = useState<string | null>(null);
 
   useEffect(() => {
     setOrigin(window.location.origin);
   }, []);
 
-  // Bind connected wallet as default MCP write owner (no ownerAddress in prompts).
+  // Quietly bind wallet so grove_write_note owns drafts for this address.
   useEffect(() => {
-    if (!address) {
-      setBoundOwner(null);
-      return;
-    }
-    let cancelled = false;
-    setBindError(null);
+    if (!address) return;
     void fetch("/api/mcp/bind-owner", {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ address }),
-    })
-      .then(async (r) => {
-        const data = (await r.json()) as {
-          ownerAddress?: string;
-          error?: string;
-        };
-        if (cancelled) return;
-        if (!r.ok) throw new Error(data.error ?? "bind failed");
-        setBoundOwner(data.ownerAddress ?? address);
-      })
-      .catch((e) => {
-        if (!cancelled) setBindError(String(e));
-      });
-    return () => {
-      cancelled = true;
-    };
+    }).catch(() => undefined);
   }, [address]);
 
   const mcpUrl = `${origin}/api/mcp`;
 
-  const askPrompt = useMemo(
-    () =>
-      `Call grove_write_note with title "Field brief" and a short synthetic body about Tiramisu handoff. Do not pass ownerAddress — Grove already bound my wallet. Confirm when the write succeeds; I will Approve in the Grove app.`,
-    [],
-  );
-
   const cursorSnippet = useMemo(
     () =>
-      JSON.stringify(
-        { mcpServers: { grove: { url: mcpUrl } } },
-        null,
-        2,
-      ),
+      JSON.stringify({ mcpServers: { grove: { url: mcpUrl } } }, null, 2),
     [mcpUrl],
   );
 
@@ -127,15 +76,15 @@ export default function McpConnectPage() {
   return (
     <div className="mcp-page">
       <PageHeader title="Connect MCP">
-        Connect your wallet here once — MCP writes land on that address
-        automatically. Approve below when Claude finishes.
+        Hook Claude / Cursor / Desktop to Grove. Writing and endorsing stay in{" "}
+        <Link href="/app/live">Live</Link>.
       </PageHeader>
 
       <div className="mcp-stage">
         <aside className="mcp-rail sheet" aria-label="Clients">
           <div className="sheet-pad mcp-rail-pad">
             <p className="sheet-label">Client</p>
-            <h2 className="mcp-rail-title">Where will you write from?</h2>
+            <h2 className="mcp-rail-title">Pick a client</h2>
             <ul className="mcp-client-list">
               {CLIENTS.map((c) => (
                 <li key={c.id}>
@@ -144,10 +93,7 @@ export default function McpConnectPage() {
                     className={
                       client === c.id ? "mcp-client is-on" : "mcp-client"
                     }
-                    onClick={() => {
-                      setClient(c.id);
-                      setStep(0);
-                    }}
+                    onClick={() => setClient(c.id)}
                   >
                     <span className="mcp-client-name">{c.name}</span>
                     <span className="mcp-client-blurb">{c.blurb}</span>
@@ -178,195 +124,69 @@ export default function McpConnectPage() {
                   {copied === "url" ? "Copied" : "Copy URL"}
                 </button>
               </div>
-              <p className="sheet-copy mt-2">
-                Claude.ai needs this public HTTPS host. Cursor / Desktop can use
-                localhost while developing.
-              </p>
-              <div className="mcp-bind mt-3">
-                <p className="sheet-label">MCP write owner</p>
-                {isConnected && address ? (
-                  <>
-                    <p className="d-data break-all">{address}</p>
-                    <p className="sheet-copy mt-1 text-xs">
-                      {boundOwner
-                        ? "Bound for grove_write_note — Claude does not need ownerAddress."
-                        : "Binding wallet…"}
-                      {bindError ? ` · ${bindError}` : ""}
-                    </p>
-                  </>
-                ) : (
-                  <>
-                    <p className="sheet-copy">
-                      Connect the wallet that should own MCP drafts.
-                    </p>
-                    <div className="mt-2">
-                      <ConnectWallet />
-                    </div>
-                  </>
-                )}
-              </div>
             </div>
           </section>
 
-          <section className="mcp-steps sheet" key={client}>
+          <section className="sheet" key={client}>
             <div className="sheet-pad">
-              <div className="mcp-stepper" role="tablist" aria-label="Setup steps">
-                {["Connect", "Ask", "Approve"].map((label, i) => (
-                  <button
-                    key={label}
-                    type="button"
-                    role="tab"
-                    aria-selected={step === i}
-                    className={step === i ? "mcp-step is-on" : "mcp-step"}
-                    onClick={() => setStep(i)}
-                  >
-                    <span className="mcp-step-n">{i + 1}</span>
-                    {label}
-                  </button>
-                ))}
-              </div>
-
-              {step === 0 && (
-                <div className="mcp-panel">
-                  {client === "claude" && (
-                    <>
-                      <h3 className="mcp-panel-title">Claude.ai connector</h3>
-                      <ol className="mcp-ol">
-                        <li>Settings → Connectors → Add custom connector</li>
-                        <li>Paste the URL above (no trailing slash)</li>
-                        <li>
-                          Leave OAuth Client ID empty — a short Grove approve
-                          page is normal
-                        </li>
-                        <li>
-                          When Connected, come back here — Ask the AI, then
-                          Approve on step 3 (notes appear automatically)
-                        </li>
-                      </ol>
-                    </>
-                  )}
-                  {client === "cursor" && (
-                    <>
-                      <h3 className="mcp-panel-title">Cursor mcp.json</h3>
-                      <pre className="mcp-pre">{cursorSnippet}</pre>
-                      <div className="sheet-actions">
-                        <button
-                          type="button"
-                          className="d-btn d-btn-line"
-                          onClick={() => void copy("cursor", cursorSnippet)}
-                        >
-                          {copied === "cursor" ? "Copied" : "Copy config"}
-                        </button>
-                      </div>
-                    </>
-                  )}
-                  {client === "desktop" && (
-                    <>
-                      <h3 className="mcp-panel-title">Claude Desktop</h3>
-                      <p className="sheet-copy">
-                        Bridge Streamable HTTP through mcp-remote:
-                      </p>
-                      <pre className="mcp-pre">{remoteSnippet}</pre>
-                      <div className="sheet-actions">
-                        <button
-                          type="button"
-                          className="d-btn d-btn-line"
-                          onClick={() => void copy("remote", remoteSnippet)}
-                        >
-                          {copied === "remote" ? "Copied" : "Copy config"}
-                        </button>
-                      </div>
-                    </>
-                  )}
-                  {client === "chatgpt" && (
-                    <>
-                      <h3 className="mcp-panel-title">ChatGPT</h3>
-                      <p className="sheet-copy">
-                        Use the same HTTPS URL wherever ChatGPT exposes remote
-                        MCP connectors (plan-dependent). If connectors are not
-                        available, use Claude.ai or Cursor for the demo.
-                      </p>
-                    </>
-                  )}
-                  <div className="sheet-actions">
-                    <button
-                      type="button"
-                      className="d-btn d-btn-signal"
-                      onClick={() => setStep(1)}
-                    >
-                      Next · Ask the AI
-                    </button>
-                  </div>
-                </div>
+              {client === "claude" && (
+                <>
+                  <h3 className="mcp-panel-title">Claude.ai</h3>
+                  <ol className="mcp-ol">
+                    <li>Settings → Connectors → Add custom connector</li>
+                    <li>Paste the URL above (no trailing slash)</li>
+                    <li>Leave OAuth Client ID empty</li>
+                    <li>
+                      On Grove’s consent page, connect the same wallet you use
+                      in Live
+                    </li>
+                  </ol>
+                </>
               )}
-
-              {step === 1 && (
-                <div className="mcp-panel">
-                  <h3 className="mcp-panel-title">Prompt to paste</h3>
-                  {!isConnected && (
-                    <p className="mcp-warn">
-                      Connect your wallet above first so writes bind to you —
-                      leave ownerAddress out of the prompt.
-                    </p>
-                  )}
-                  {isConnected && !boundOwner && !bindError && (
-                    <p className="mcp-warn">Binding wallet for MCP…</p>
-                  )}
-                  <pre className="mcp-pre mcp-pre-prompt">{askPrompt}</pre>
+              {client === "cursor" && (
+                <>
+                  <h3 className="mcp-panel-title">Cursor</h3>
+                  <pre className="mcp-pre">{cursorSnippet}</pre>
                   <div className="sheet-actions">
-                    <button
-                      type="button"
-                      className="d-btn d-btn-signal"
-                      onClick={() => void copy("ask", askPrompt)}
-                    >
-                      {copied === "ask" ? "Copied" : "Copy prompt"}
-                    </button>
                     <button
                       type="button"
                       className="d-btn d-btn-line"
-                      onClick={() => setStep(2)}
+                      onClick={() => void copy("cursor", cursorSnippet)}
                     >
-                      Next · Watch for draft
+                      {copied === "cursor" ? "Copied" : "Copy config"}
                     </button>
                   </div>
-                </div>
+                </>
               )}
-
-              {step === 2 && (
-                <div className="mcp-panel">
-                  <h3 className="mcp-panel-title">Approve MCP drafts</h3>
+              {client === "desktop" && (
+                <>
+                  <h3 className="mcp-panel-title">Claude Desktop</h3>
+                  <pre className="mcp-pre">{remoteSnippet}</pre>
+                  <div className="sheet-actions">
+                    <button
+                      type="button"
+                      className="d-btn d-btn-line"
+                      onClick={() => void copy("remote", remoteSnippet)}
+                    >
+                      {copied === "remote" ? "Copied" : "Copy config"}
+                    </button>
+                  </div>
+                </>
+              )}
+              {client === "chatgpt" && (
+                <>
+                  <h3 className="mcp-panel-title">ChatGPT</h3>
                   <p className="sheet-copy">
-                    When Claude finishes <code className="font-mono">grove_write_note</code>,
-                    ownership is already on your connected wallet. This list
-                    refreshes on its own — Approve here.
+                    Use the same HTTPS URL wherever ChatGPT supports remote MCP.
+                    Otherwise use Claude.ai or Cursor.
                   </p>
-                  <div className="mcp-queue-wrap mt-3">
-                    <OwnerDraftQueue
-                      emptyHint={
-                        <>
-                          Waiting for a write to{" "}
-                          <code className="font-mono">
-                            {address ?? "your wallet"}
-                          </code>
-                          . Keep this tab open after you ask Claude.
-                        </>
-                      }
-                    />
-                  </div>
-                  <div className="sheet-actions">
-                    <button
-                      type="button"
-                      className="d-btn d-btn-line"
-                      onClick={() => setStep(1)}
-                    >
-                      Back · Ask again
-                    </button>
-                    <Link href="/app" className="d-btn d-btn-line">
-                      Open Vault
-                    </Link>
-                  </div>
-                </div>
+                </>
               )}
+              <div className="sheet-actions">
+                <Link href="/app/live" className="d-btn d-btn-signal">
+                  Back to Live
+                </Link>
+              </div>
             </div>
           </section>
         </div>

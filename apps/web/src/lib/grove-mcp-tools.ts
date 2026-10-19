@@ -63,7 +63,7 @@ export function registerGroveMcpTools(server: ToolServer) {
 
   server.tool(
     "grove_write_note",
-    "Write a sealed draft note into the Grove vault. Do NOT ask the user for an owner address — ownership defaults to the wallet they bound in Grove (OAuth consent or Connect MCP). Content stays pending until that wallet endorses in Grove → Connect MCP → Approve.",
+    "Write a sealed draft note into the Grove vault. Do NOT ask for an owner address — ownership defaults to the wallet bound in Grove. The user endorses in Grove Live when they return.",
     {
       title: z.string().min(1).max(200),
       body: z.string().min(1).max(20_000),
@@ -112,8 +112,8 @@ export function registerGroveMcpTools(server: ToolServer) {
                 txHashes: result.txHashes,
                 payloadSha256: result.payloadSha256,
                 ownerAddress: cfg.ownerAddress,
-                endorsePath: `/app/mcp`,
-                next: `Open Grove → Connect MCP → Approve. The draft for ${cfg.ownerAddress} appears there automatically.`,
+                endorsePath: `/app/live`,
+                next: `Tell the user to return to Grove Live — Endorse opens automatically for ${cfg.ownerAddress}.`,
               },
               null,
               2,

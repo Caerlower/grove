@@ -69,8 +69,8 @@ export default function LivePlaygroundPage() {
   const [claudeOk, setClaudeOk] = useState<boolean | null>(null);
   const [step, setStep] = useState<Step>("connect");
   const [fromMcp, setFromMcp] = useState(false);
-  const [nidDraft, setNidDraft] = useState("");
   const [bootstrappedNid, setBootstrappedNid] = useState(false);
+  const [watchingMcp, setWatchingMcp] = useState(false);
 
   const push = useCallback((text: string, links?: ActivityLink[]) => {
     setLog((prev) =>
@@ -152,30 +152,102 @@ export default function LivePlaygroundPage() {
 
     const params = new URLSearchParams(window.location.search);
     const q = params.get("nid")?.trim();
-    const mcp = params.get("from") === "mcp";
     if (q) {
-      setFromMcp(mcp);
-      setNidDraft(q);
+      setFromMcp(params.get("from") === "mcp");
       setBootstrappedNid(true);
-      void openNoteForEndorse(q, { fromMcp: mcp });
+      void openNoteForEndorse(q, { fromMcp: true });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [push]);
 
+  // Bind connected wallet as default MCP write owner.
   useEffect(() => {
-    if (!isConnected) {
+    if (!address) return;
+    void fetch("/api/mcp/bind-owner", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ address }),
+    }).catch(() => undefined);
+  }, [address]);
+
+  useEffect(() => {
+    if (!isConnected || !address) {
       if (!nid) setStep("connect");
       return;
     }
     if (step !== "connect") return;
-    // MCP / deep-link: skip allowlist + write wizards and go endorse
     if (nid || bootstrappedNid) {
       setStep("endorse");
       if (nid) void openNoteForEndorse(nid, { fromMcp });
       return;
     }
-    setStep("allow");
-  }, [isConnected, step, nid, bootstrappedNid, fromMcp, openNoteForEndorse]);
+    let cancelled = false;
+    void fetch(`/api/vault/owner-drafts?owner=${encodeURIComponent(address)}`)
+      .then((r) => r.json())
+      .then((data: { drafts?: Array<{ nid: string }> }) => {
+        if (cancelled) return;
+        const latest = data.drafts?.[0];
+        if (latest?.nid) {
+          void openNoteForEndorse(latest.nid, { fromMcp: true });
+        } else {
+          setStep("allow");
+        }
+      })
+      .catch(() => {
+        if (!cancelled) setStep("allow");
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [isConnected, address, step, nid, bootstrappedNid, fromMcp, openNoteForEndorse]);
+
+  // After allowlist → write (or waiting on endorse), pick up MCP drafts automatically.
+  useEffect(() => {
+    if (!isConnected || !address || busy || endorseDecision) return;
+    if (step !== "write" && step !== "endorse") return;
+
+    let cancelled = false;
+    async function pull() {
+      try {
+        const res = await fetch(
+          `/api/vault/owner-drafts?owner=${encodeURIComponent(address!)}`,
+        );
+        const data = (await res.json()) as {
+          drafts?: Array<{ nid: string }>;
+        };
+        if (cancelled) return;
+        const latest = data.drafts?.[0];
+        if (!latest?.nid) {
+          if (step === "write") setWatchingMcp(true);
+          return;
+        }
+        if (latest.nid === nid) return;
+        if (step === "write" || !nid) {
+          setWatchingMcp(false);
+          push(`MCP draft detected · opening Endorse`);
+          void openNoteForEndorse(latest.nid, { fromMcp: true });
+        }
+      } catch {
+        /* ignore poll errors */
+      }
+    }
+
+    void pull();
+    const id = window.setInterval(() => void pull(), 5_000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(id);
+    };
+  }, [
+    isConnected,
+    address,
+    step,
+    nid,
+    busy,
+    endorseDecision,
+    openNoteForEndorse,
+    push,
+  ]);
 
   async function fetchGate(n: string): Promise<GateResult> {
     if (!address) return { allow: false, reason: "no_wallet" };
@@ -518,30 +590,23 @@ export default function LivePlaygroundPage() {
                 <div className="write-paths mt-4">
                   <div className="write-path write-path-focus">
                     <p className="sheet-label">Option A · Recommended</p>
-                    <h3 className="write-path-title">Any AI via Grove MCP</h3>
+                    <h3 className="write-path-title">Write via Grove MCP</h3>
                     <p className="sheet-copy">
-                      Open Connect MCP, connect this wallet (binds as write
-                      owner), then ask Claude to call{" "}
-                      <code className="font-mono">grove_write_note</code> — no
-                      address in the prompt.
+                      Connect Claude (or Cursor) once, then ask it to call{" "}
+                      <code className="font-mono">grove_write_note</code>. Stay
+                      on this page — when the draft lands, Live jumps to Endorse
+                      automatically.
                     </p>
                     <div className="sheet-actions">
                       <Link href="/app/mcp" className="d-btn d-btn-signal">
-                        Connect MCP clients
+                        How to connect MCP
                       </Link>
                     </div>
-                    <p className="sheet-copy mt-2 text-xs">
-                      After the AI writes, open{" "}
-                      <Link href="/app/mcp" className="underline">
-                        Connect MCP → Approve
-                      </Link>
-                      — drafts for your wallet appear there automatically.
-                    </p>
-                    <div className="sheet-actions">
-                      <Link href="/app/mcp" className="d-btn d-btn-line">
-                        Open MCP Approve queue
-                      </Link>
-                    </div>
+                    {watchingMcp && (
+                      <p className="sheet-copy mt-2 text-xs">
+                        Watching for a draft owned by your wallet…
+                      </p>
+                    )}
                   </div>
 
                   <div className="write-path">
@@ -638,35 +703,19 @@ export default function LivePlaygroundPage() {
             <section className="sheet">
               <div className="sheet-pad">
                 <p className="sheet-label">Step 4 · Endorse</p>
-                <h2 className="sheet-title">Paste a note id from MCP</h2>
+                <h2 className="sheet-title">Waiting for a draft</h2>
                 <p className="sheet-copy">
-                  After Claude / Cursor returns an <code className="font-mono">nid</code>,
-                  paste it here to approve — you do not need the Allowlist or Write
-                  steps again for that note.
+                  Ask Claude to call <code className="font-mono">grove_write_note</code>.
+                  This step opens on its own when a note is handed to your wallet.
                 </p>
-                <label className="mt-3 block text-xs text-[var(--mute)]">
-                  nid
-                  <input
-                    className="d-field mt-1 font-mono"
-                    value={nidDraft}
-                    onChange={(e) => setNidDraft(e.target.value)}
-                    placeholder="e.g. a1b2c3d4…"
-                  />
-                </label>
                 <div className="sheet-actions">
                   <button
                     type="button"
-                    className="d-btn d-btn-signal"
-                    disabled={!nidDraft.trim() || !!busy}
-                    onClick={() =>
-                      void openNoteForEndorse(nidDraft, { fromMcp: true })
-                    }
+                    className="d-btn d-btn-line"
+                    onClick={() => setStep("write")}
                   >
-                    Load note · Endorse
+                    Back to Write
                   </button>
-                  <Link href="/app/pending" className="d-btn d-btn-line">
-                    Open Pending queue
-                  </Link>
                 </div>
               </div>
             </section>
@@ -675,9 +724,7 @@ export default function LivePlaygroundPage() {
           {step === "endorse" && nid && (
             <section className="sheet endorse-sheet">
               <div className="sheet-pad endorse-panel">
-                <p className="sheet-label">
-                  {fromMcp ? "MCP write · Endorse" : "Step 4 · Endorse"}
-                </p>
+                <p className="sheet-label">Step 4 · Endorse</p>
                 <h2 className="sheet-title endorse-title">
                   {done
                     ? doneOk
