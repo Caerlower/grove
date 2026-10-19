@@ -16,6 +16,8 @@ type CodePayload = {
   ru: string;
   cc?: string;
   cm?: string;
+  /** Optional vault-owner wallet captured at consent. */
+  own?: string;
   exp: number;
 };
 
@@ -23,6 +25,7 @@ type TokenPayload = {
   cid: string;
   typ: "at" | "rt";
   exp: number;
+  own?: string;
 };
 
 function hmacSecret() {
@@ -149,12 +152,14 @@ export function issueAuthCode(opts: {
   redirectUri: string;
   codeChallenge?: string;
   codeChallengeMethod?: string;
+  ownerAddress?: string;
 }) {
   const payload: CodePayload = {
     cid: opts.clientId,
     ru: opts.redirectUri,
     cc: opts.codeChallenge,
     cm: opts.codeChallengeMethod,
+    own: opts.ownerAddress,
     exp: Date.now() + 10 * 60_000,
   };
   return `c_${seal(payload)}`;
@@ -185,11 +190,13 @@ export function exchangeCode(opts: {
     cid: opts.clientId,
     typ: "at",
     exp: Date.now() + 24 * 60 * 60_000,
+    own: entry.own,
   } satisfies TokenPayload);
   const refresh = seal({
     cid: opts.clientId,
     typ: "rt",
     exp: Date.now() + 30 * 24 * 60 * 60_000,
+    own: entry.own,
   } satisfies TokenPayload);
 
   return {
@@ -210,6 +217,7 @@ export function refreshAccessToken(refreshToken: string, clientId: string) {
     cid: clientId,
     typ: "at",
     exp: Date.now() + 24 * 60 * 60_000,
+    own: entry.own,
   } satisfies TokenPayload);
   return {
     access_token: `grove_at_${access}`,
@@ -225,6 +233,14 @@ export function isDemoAccessToken(token: string | undefined): boolean {
   const entry = open<TokenPayload>(token.slice("grove_at_".length));
   if (!entry || entry.typ !== "at") return false;
   return entry.exp >= Date.now();
+}
+
+/** Owner wallet embedded in a demo access token, if present. */
+export function ownerFromAccessToken(token: string | undefined): string | null {
+  if (!token?.startsWith("grove_at_")) return null;
+  const entry = open<TokenPayload>(token.slice("grove_at_".length));
+  if (!entry || entry.typ !== "at" || entry.exp < Date.now()) return null;
+  return entry.own ?? null;
 }
 
 export function redirectUriAllowed(client: Client, redirectUri: string) {

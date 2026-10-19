@@ -29,7 +29,7 @@ export const GROVE_MCP_HELP = {
     },
   ],
   write_tip:
-    "Pass ownerAddress as the user’s connected wallet; they Approve under Connect MCP → Approve (auto queue).",
+    "Omit ownerAddress — server uses the wallet bound in Grove Connect MCP / OAuth consent. Approve under Connect MCP → Approve.",
   clients:
     "Remote URL: https://<host>/api/mcp — Claude.ai connectors, Cursor, Claude Desktop (mcp-remote), ChatGPT where MCP is enabled.",
 } as const;

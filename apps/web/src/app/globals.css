@@ -1920,6 +1920,11 @@ a {
   margin-top: 0.5rem;
 }
 
+.mcp-bind {
+  padding-top: 0.85rem;
+  border-top: 1px solid var(--line);
+}
+
 @keyframes mcp-in {
   from {
     opacity: 0;

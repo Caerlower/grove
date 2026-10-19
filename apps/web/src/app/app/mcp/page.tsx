@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { ConnectWallet } from "@/components/ConnectWallet";
 import { PageHeader } from "@/components/PageHeader";
 import { OwnerDraftQueue } from "@/components/OwnerDraftQueue";
 import { useArkivWallet } from "@/lib/useArkivWallet";
@@ -41,18 +42,49 @@ export default function McpConnectPage() {
   const [client, setClient] = useState<ClientId>("claude");
   const [copied, setCopied] = useState<string | null>(null);
   const [step, setStep] = useState(0);
+  const [boundOwner, setBoundOwner] = useState<string | null>(null);
+  const [bindError, setBindError] = useState<string | null>(null);
 
   useEffect(() => {
     setOrigin(window.location.origin);
   }, []);
 
+  // Bind connected wallet as default MCP write owner (no ownerAddress in prompts).
+  useEffect(() => {
+    if (!address) {
+      setBoundOwner(null);
+      return;
+    }
+    let cancelled = false;
+    setBindError(null);
+    void fetch("/api/mcp/bind-owner", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ address }),
+    })
+      .then(async (r) => {
+        const data = (await r.json()) as {
+          ownerAddress?: string;
+          error?: string;
+        };
+        if (cancelled) return;
+        if (!r.ok) throw new Error(data.error ?? "bind failed");
+        setBoundOwner(data.ownerAddress ?? address);
+      })
+      .catch((e) => {
+        if (!cancelled) setBindError(String(e));
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [address]);
+
   const mcpUrl = `${origin}/api/mcp`;
-  const ownerHint = address ?? "0xYOUR_CONNECTED_WALLET";
 
   const askPrompt = useMemo(
     () =>
-      `Use grove_write_note with title "Field brief", a short synthetic body about Tiramisu handoff, and ownerAddress ${ownerHint}. Confirm when the write succeeds — I will approve it in the Grove app (no need to paste the nid).`,
-    [ownerHint],
+      `Call grove_write_note with title "Field brief" and a short synthetic body about Tiramisu handoff. Do not pass ownerAddress — Grove already bound my wallet. Confirm when the write succeeds; I will Approve in the Grove app.`,
+    [],
   );
 
   const cursorSnippet = useMemo(
@@ -95,9 +127,8 @@ export default function McpConnectPage() {
   return (
     <div className="mcp-page">
       <PageHeader title="Connect MCP">
-        Claude writes on-chain as Demo Agent A into{" "}
-        <em>your</em> wallet — this page watches that queue and lets you
-        Approve. No nid copy-paste.
+        Connect your wallet here once — MCP writes land on that address
+        automatically. Approve below when Claude finishes.
       </PageHeader>
 
       <div className="mcp-stage">
@@ -151,6 +182,29 @@ export default function McpConnectPage() {
                 Claude.ai needs this public HTTPS host. Cursor / Desktop can use
                 localhost while developing.
               </p>
+              <div className="mcp-bind mt-3">
+                <p className="sheet-label">MCP write owner</p>
+                {isConnected && address ? (
+                  <>
+                    <p className="d-data break-all">{address}</p>
+                    <p className="sheet-copy mt-1 text-xs">
+                      {boundOwner
+                        ? "Bound for grove_write_note — Claude does not need ownerAddress."
+                        : "Binding wallet…"}
+                      {bindError ? ` · ${bindError}` : ""}
+                    </p>
+                  </>
+                ) : (
+                  <>
+                    <p className="sheet-copy">
+                      Connect the wallet that should own MCP drafts.
+                    </p>
+                    <div className="mt-2">
+                      <ConnectWallet />
+                    </div>
+                  </>
+                )}
+              </div>
             </div>
           </section>
 
@@ -251,10 +305,12 @@ export default function McpConnectPage() {
                   <h3 className="mcp-panel-title">Prompt to paste</h3>
                   {!isConnected && (
                     <p className="mcp-warn">
-                      Connect your wallet first so{" "}
-                      <code className="font-mono">ownerAddress</code> matches
-                      the wallet that will Approve.
+                      Connect your wallet above first so writes bind to you —
+                      leave ownerAddress out of the prompt.
                     </p>
+                  )}
+                  {isConnected && !boundOwner && !bindError && (
+                    <p className="mcp-warn">Binding wallet for MCP…</p>
                   )}
                   <pre className="mcp-pre mcp-pre-prompt">{askPrompt}</pre>
                   <div className="sheet-actions">

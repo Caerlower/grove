@@ -1,6 +1,8 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { WebStandardStreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/webStandardStreamableHttp.js";
+import { ownerFromAccessToken } from "@/lib/demo-oauth";
 import { registerGroveMcpTools } from "@/lib/grove-mcp-tools";
+import { mcpRequestContext } from "@/lib/mcp-request-context";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -135,6 +137,12 @@ async function handle(req: Request): Promise<Response> {
     headers.set("accept", "application/json, text/event-stream");
   }
 
+  const auth = headers.get("authorization") ?? "";
+  const bearer = auth.toLowerCase().startsWith("bearer ")
+    ? auth.slice(7).trim()
+    : undefined;
+  const ownerFromToken = ownerFromAccessToken(bearer) ?? undefined;
+
   const server = new McpServer({ name: "grove", version: "0.1.0" });
   registerGroveMcpTools(server as never);
 
@@ -144,12 +152,14 @@ async function handle(req: Request): Promise<Response> {
   });
 
   try {
-    await server.connect(transport);
-    const res = await transport.handleRequest(
-      new Request(req.url, { method: "POST", headers }),
-      { parsedBody: body },
-    );
-    return withCors(res);
+    return await mcpRequestContext.run({ ownerFromToken }, async () => {
+      await server.connect(transport);
+      const res = await transport.handleRequest(
+        new Request(req.url, { method: "POST", headers }),
+        { parsedBody: body },
+      );
+      return withCors(res);
+    });
   } catch (e) {
     console.error("[grove mcp]", e);
     return jsonRpc(500, {

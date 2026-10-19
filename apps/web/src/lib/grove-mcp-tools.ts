@@ -17,6 +17,8 @@ import {
 } from "@/lib/server-grove";
 import { gatedReadNote, searchNotes } from "@/lib/mcp-reader";
 import { GROVE_MCP_HELP } from "@/lib/grove-mcp-help";
+import { getBoundMcpOwner } from "@/lib/mcp-bound-owner";
+import { getMcpRequestOwner } from "@/lib/mcp-request-context";
 
 type ToolServer = {
   tool: (
@@ -61,7 +63,7 @@ export function registerGroveMcpTools(server: ToolServer) {
 
   server.tool(
     "grove_write_note",
-    "Write a sealed draft note into the Grove vault. Ownership is handed to ownerAddress (or the default vault owner). Content stays pending until that wallet endorses.",
+    "Write a sealed draft note into the Grove vault. Do NOT ask the user for an owner address — ownership defaults to the wallet they bound in Grove (OAuth consent or Connect MCP). Content stays pending until that wallet endorses in Grove → Connect MCP → Approve.",
     {
       title: z.string().min(1).max(200),
       body: z.string().min(1).max(20_000),
@@ -72,16 +74,19 @@ export function registerGroveMcpTools(server: ToolServer) {
         .regex(/^0x[a-fA-F0-9]{40}$/)
         .optional()
         .describe(
-          "Human vault owner who will endorse. Use the user's connected wallet from the Grove Live UI when demoing.",
+          "Rare override only. Prefer omitting — server uses the bound Grove wallet.",
         ),
     },
     async ({ title, body, tags, links, ownerAddress }) => {
       const env = mcpEnv();
+      const resolvedOwner = ownerAddress
+        ? getAddress(ownerAddress)
+        : getMcpRequestOwner()
+          ? getAddress(getMcpRequestOwner()!)
+          : getBoundMcpOwner() ?? getAddress(env.cfg.ownerAddress);
       const cfg = {
         ...env.cfg,
-        ownerAddress: ownerAddress
-          ? getAddress(ownerAddress)
-          : env.cfg.ownerAddress,
+        ownerAddress: resolvedOwner,
       };
       const result = await writeNoteAsAgent({
         rpcUrl: cfg.rpcUrl,
@@ -108,7 +113,7 @@ export function registerGroveMcpTools(server: ToolServer) {
                 payloadSha256: result.payloadSha256,
                 ownerAddress: cfg.ownerAddress,
                 endorsePath: `/app/mcp`,
-                next: `Tell the user to open Grove → Connect MCP → Approve. The draft appears automatically for ownerAddress ${cfg.ownerAddress} — no nid paste.`,
+                next: `Open Grove → Connect MCP → Approve. The draft for ${cfg.ownerAddress} appears there automatically.`,
               },
               null,
               2,

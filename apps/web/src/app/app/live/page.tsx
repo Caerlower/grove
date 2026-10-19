@@ -520,29 +520,15 @@ export default function LivePlaygroundPage() {
                     <p className="sheet-label">Option A · Recommended</p>
                     <h3 className="write-path-title">Any AI via Grove MCP</h3>
                     <p className="sheet-copy">
-                      Connect Claude.ai, Cursor, ChatGPT (where MCP is
-                      supported), or Claude Desktop to the remote MCP URL, then
-                      ask that AI to call <code className="font-mono">grove_write_note</code>{" "}
-                      with your wallet as <code className="font-mono">ownerAddress</code>.
-                    </p>
-                    <p className="d-data mt-2 break-all">
-                      ownerAddress: {address}
+                      Open Connect MCP, connect this wallet (binds as write
+                      owner), then ask Claude to call{" "}
+                      <code className="font-mono">grove_write_note</code> — no
+                      address in the prompt.
                     </p>
                     <div className="sheet-actions">
                       <Link href="/app/mcp" className="d-btn d-btn-signal">
                         Connect MCP clients
                       </Link>
-                      <button
-                        type="button"
-                        className="d-btn d-btn-line"
-                        onClick={() => {
-                          if (!address) return;
-                          void navigator.clipboard.writeText(address);
-                          push("Copied your wallet address for MCP ownerAddress");
-                        }}
-                      >
-                        Copy wallet address
-                      </button>
                     </div>
                     <p className="sheet-copy mt-2 text-xs">
                       After the AI writes, open{" "}
