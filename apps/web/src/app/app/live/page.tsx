@@ -437,74 +437,132 @@ export default function LivePlaygroundPage() {
                 <p className="sheet-label">Step 3</p>
                 <h2 className="sheet-title">Agent writes</h2>
                 <p className="sheet-copy">
-                  Set title and body for MCP-equivalent write, or give Claude a
-                  freeform prompt.
+                  Pick how the agent creates the sealed note. Your connected
+                  wallet ({address?.slice(0, 6)}…{address?.slice(-4)}) receives
+                  ownership, then you endorse in step 4.
                 </p>
-                <label className="mt-3 block text-xs text-[var(--mute)]">
-                  Note title
-                  <input
-                    className="d-field mt-1"
-                    value={noteTitle}
-                    onChange={(e) => setNoteTitle(e.target.value)}
-                    placeholder="Note title"
-                  />
-                </label>
-                <label className="mt-2 block text-xs text-[var(--mute)]">
-                  Note body
-                  <textarea
-                    className="d-area mt-1"
-                    value={noteBody}
-                    onChange={(e) => setNoteBody(e.target.value)}
-                    rows={3}
-                  />
-                </label>
-                {claudeOk === false && (
-                  <p className="sheet-copy mt-2">
-                    Claude needs ANTHROPIC_API_KEY — use MCP-equivalent write
-                    instead.
-                  </p>
-                )}
-                <label className="mt-3 block text-xs text-[var(--mute)]">
-                  Claude prompt
-                  <textarea
-                    className="d-area mt-1"
-                    value={prompt}
-                    onChange={(e) => setPrompt(e.target.value)}
-                    disabled={claudeOk === false}
-                  />
-                </label>
-                <div className="sheet-actions">
-                  <button
-                    type="button"
-                    disabled={
-                      !!busy || !noteTitle.trim() || !noteBody.trim()
-                    }
-                    onClick={() => void triggerMcpEquivalentWrite()}
-                    className="d-btn d-btn-signal"
-                  >
-                    {busy === "write" ? "Writing…" : "MCP-equivalent write"}
-                  </button>
-                  <button
-                    type="button"
-                    disabled={!!busy || claudeOk === false}
-                    onClick={() => void askClaude()}
-                    className="d-btn d-btn-line"
-                  >
-                    {busy === "claude" ? "Working…" : "Ask Claude"}
-                  </button>
+
+                <div className="write-paths mt-4">
+                  <div className="write-path write-path-focus">
+                    <p className="sheet-label">Option A · Recommended</p>
+                    <h3 className="write-path-title">Any AI via Grove MCP</h3>
+                    <p className="sheet-copy">
+                      Connect Claude.ai, Cursor, ChatGPT (where MCP is
+                      supported), or Claude Desktop to the remote MCP URL, then
+                      ask that AI to call <code className="font-mono">grove_write_note</code>{" "}
+                      with your wallet as <code className="font-mono">ownerAddress</code>.
+                    </p>
+                    <p className="d-data mt-2 break-all">
+                      ownerAddress: {address}
+                    </p>
+                    <div className="sheet-actions">
+                      <Link href="/app/mcp" className="d-btn d-btn-signal">
+                        Connect MCP clients
+                      </Link>
+                      <button
+                        type="button"
+                        className="d-btn d-btn-line"
+                        onClick={() => {
+                          if (!address) return;
+                          void navigator.clipboard.writeText(address);
+                          push("Copied your wallet address for MCP ownerAddress");
+                        }}
+                      >
+                        Copy wallet address
+                      </button>
+                    </div>
+                    <p className="sheet-copy mt-2 text-xs">
+                      After the AI returns a <code className="font-mono">nid</code>,
+                      come back here and continue to Endorse (or open Pending).
+                    </p>
+                  </div>
+
+                  <div className="write-path">
+                    <p className="sheet-label">Option B · In this page</p>
+                    <h3 className="write-path-title">Demo agent write</h3>
+                    <p className="sheet-copy">
+                      Same on-chain path as MCP <code className="font-mono">grove_write_note</code>,
+                      without leaving the site. Good for a quick judge walkthrough.
+                    </p>
+                    <label className="mt-3 block text-xs text-[var(--mute)]">
+                      Note title
+                      <input
+                        className="d-field mt-1"
+                        value={noteTitle}
+                        onChange={(e) => setNoteTitle(e.target.value)}
+                        placeholder="Note title"
+                      />
+                    </label>
+                    <label className="mt-2 block text-xs text-[var(--mute)]">
+                      Note body
+                      <textarea
+                        className="d-area mt-1"
+                        value={noteBody}
+                        onChange={(e) => setNoteBody(e.target.value)}
+                        rows={3}
+                      />
+                    </label>
+                    <div className="sheet-actions">
+                      <button
+                        type="button"
+                        disabled={
+                          !!busy || !noteTitle.trim() || !noteBody.trim()
+                        }
+                        onClick={() => void triggerMcpEquivalentWrite()}
+                        className="d-btn d-btn-signal"
+                      >
+                        {busy === "write" ? "Writing…" : "Write as Agent A"}
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="write-path">
+                    <p className="sheet-label">Option C · Optional</p>
+                    <h3 className="write-path-title">Server-side Claude</h3>
+                    <p className="sheet-copy">
+                      Uses <code className="font-mono">ANTHROPIC_API_KEY</code> on
+                      this deploy to drive the same write tool from a freeform
+                      prompt. Not required if you use Option A or B.
+                    </p>
+                    {claudeOk === false && (
+                      <p className="sheet-copy mt-2">
+                        No API key configured on this host. Use MCP (A) or Write
+                        as Agent A (B).
+                      </p>
+                    )}
+                    <label className="mt-3 block text-xs text-[var(--mute)]">
+                      Prompt
+                      <textarea
+                        className="d-area mt-1"
+                        value={prompt}
+                        onChange={(e) => setPrompt(e.target.value)}
+                        disabled={claudeOk === false}
+                      />
+                    </label>
+                    <div className="sheet-actions">
+                      <button
+                        type="button"
+                        disabled={!!busy || claudeOk === false}
+                        onClick={() => void askClaude()}
+                        className="d-btn d-btn-line"
+                      >
+                        {busy === "claude" ? "Working…" : "Ask Claude API"}
+                      </button>
+                    </div>
+                    {chat.length > 0 && (
+                      <ul className="mt-3 max-h-36 space-y-2 overflow-auto border-t border-[var(--line)] pt-3 text-sm">
+                        {chat.map((m, i) => (
+                          <li key={i}>
+                            <span className="d-chip">{m.role}</span>
+                            <p className="mt-1 whitespace-pre-wrap text-[var(--mute)]">
+                              {m.content}
+                            </p>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </div>
                 </div>
-                {chat.length > 0 && (
-                  <ul className="mt-3 max-h-36 space-y-2 overflow-auto border-t border-[var(--line)] pt-3 text-sm">
-                    {chat.map((m, i) => (
-                      <li key={i}>
-                        <span className="d-chip">{m.role}</span>
-                        <p className="mt-1 whitespace-pre-wrap text-[var(--mute)]">
-                          {m.content}
-                        </p>
-                      </li>
-                    ))}
-                  </ul>
-                )}
               </div>
             </section>
           )}

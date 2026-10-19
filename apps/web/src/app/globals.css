@@ -1628,6 +1628,37 @@ a {
   margin-top: 1rem;
 }
 
+.write-paths {
+  display: grid;
+  gap: 1rem;
+}
+
+.write-path {
+  padding: 1rem 1.05rem;
+  border: 1px solid var(--line);
+  border-radius: 1rem;
+  background: #f8fafc;
+}
+
+.write-path-focus {
+  border-color: var(--signal);
+  background: var(--signal-soft);
+}
+
+.write-path-title {
+  margin-top: 0.25rem;
+  font-size: 1rem;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  color: var(--ink);
+}
+
+@media (min-width: 900px) {
+  .write-paths {
+    grid-template-columns: 1fr;
+  }
+}
+
 .d-btn {
   display: inline-flex;
   align-items: center;

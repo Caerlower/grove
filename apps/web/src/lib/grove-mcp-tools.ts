@@ -45,18 +45,31 @@ export function registerGroveMcpTools(server: ToolServer) {
 
   server.tool(
     "grove_write_note",
-    "Write a sealed draft note into the Grove vault. Ownership is handed to the configured vault owner. Content is pending review until endorsed.",
+    "Write a sealed draft note into the Grove vault. Ownership is handed to ownerAddress (or the default vault owner). Content stays pending until that wallet endorses.",
     {
       title: z.string().min(1).max(200),
       body: z.string().min(1).max(20_000),
       tags: z.array(z.string()).max(10).optional(),
       links: z.array(z.string()).max(20).optional(),
+      ownerAddress: z
+        .string()
+        .regex(/^0x[a-fA-F0-9]{40}$/)
+        .optional()
+        .describe(
+          "Human vault owner who will endorse. Use the user's connected wallet from the Grove Live UI when demoing.",
+        ),
     },
-    async ({ title, body, tags, links }) => {
+    async ({ title, body, tags, links, ownerAddress }) => {
+      const cfg = {
+        ...env.cfg,
+        ownerAddress: ownerAddress
+          ? getAddress(ownerAddress)
+          : env.cfg.ownerAddress,
+      };
       const result = await writeNoteAsAgent({
-        rpcUrl: env.cfg.rpcUrl,
+        rpcUrl: cfg.rpcUrl,
         agentPrivateKey: env.agentPrivateKey,
-        cfg: env.cfg,
+        cfg,
         vaultKeyRaw: env.vaultKeyRaw,
         content: {
           title,
@@ -76,7 +89,8 @@ export function registerGroveMcpTools(server: ToolServer) {
                 status: result.status,
                 txHashes: result.txHashes,
                 payloadSha256: result.payloadSha256,
-                ownerAddress: env.cfg.ownerAddress,
+                ownerAddress: cfg.ownerAddress,
+                next: "Open Grove /app/live with this wallet and Approve the note.",
               },
               null,
               2,
