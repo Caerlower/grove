@@ -42,7 +42,8 @@ function mcpEnv() {
 
 /** Register Grove tools on an MCP server (HTTP via mcp-handler). */
 export function registerGroveMcpTools(server: ToolServer) {
-  const env = mcpEnv();
+  // Do not call mcpEnv() at register time — initialize must succeed even if
+  // secrets are briefly unavailable; tool calls load env lazily.
 
   server.tool(
     "grove_help",
@@ -75,6 +76,7 @@ export function registerGroveMcpTools(server: ToolServer) {
         ),
     },
     async ({ title, body, tags, links, ownerAddress }) => {
+      const env = mcpEnv();
       const cfg = {
         ...env.cfg,
         ownerAddress: ownerAddress
@@ -123,6 +125,7 @@ export function registerGroveMcpTools(server: ToolServer) {
       nid: z.string().min(8).max(32),
     },
     async ({ nid }) => {
+      const env = mcpEnv();
       const result = await gatedReadNote({
         cfg: env.cfg,
         vaultKeyRaw: env.vaultKeyRaw,
@@ -170,6 +173,7 @@ export function registerGroveMcpTools(server: ToolServer) {
       text: z.string().optional(),
     },
     async ({ tag, text }) => {
+      const env = mcpEnv();
       const results = await searchNotes({
         cfg: env.cfg,
         vaultKeyRaw: env.vaultKeyRaw,
@@ -188,6 +192,7 @@ export function registerGroveMcpTools(server: ToolServer) {
     "This agent's notes with review state, trust tier and stats.",
     {},
     async () => {
+      const env = mcpEnv();
       const account = privateKeyToAccount(env.agentPrivateKey);
       const publicClient = createGrovePublicClient(env.cfg.rpcUrl);
       const notes = await fetchNotesByCreator(
@@ -234,6 +239,7 @@ export function registerGroveMcpTools(server: ToolServer) {
     "Per-agent trust tier and stats for everyone on the allowlist.",
     {},
     async () => {
+      const env = mcpEnv();
       const publicClient = createGrovePublicClient(env.cfg.rpcUrl);
       const allow = await fetchAllowlist(publicClient, env.cfg);
       const endorsements = await fetchAllEndorsements(publicClient, env.cfg);

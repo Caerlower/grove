@@ -183,6 +183,11 @@ export default function McpConnectPage() {
                           page is normal
                         </li>
                         <li>
+                          If Claude says “authorized but error connecting”,
+                          remove the connector, wait for the latest deploy, and
+                          add it again (Streamable HTTP only — no Redis/SSE)
+                        </li>
+                        <li>
                           Avoid <code className="font-mono">MCP_SHARED_SECRET</code>{" "}
                           on Vercel for Claude.ai
                         </li>
