@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { PageHeader } from "@/components/PageHeader";
 import { useArkivWallet } from "@/lib/useArkivWallet";
 
@@ -35,11 +36,13 @@ const CLIENTS: Array<{
 ];
 
 export default function McpConnectPage() {
+  const router = useRouter();
   const { address, isConnected } = useArkivWallet();
   const [origin, setOrigin] = useState("https://YOUR_HOST");
   const [client, setClient] = useState<ClientId>("claude");
   const [copied, setCopied] = useState<string | null>(null);
   const [step, setStep] = useState(0);
+  const [nid, setNid] = useState("");
 
   useEffect(() => {
     setOrigin(window.location.origin);
@@ -50,9 +53,15 @@ export default function McpConnectPage() {
 
   const askPrompt = useMemo(
     () =>
-      `Call grove_help first if you need the tool list. Then use grove_write_note with title "Field brief", a short synthetic body about Tiramisu handoff, and ownerAddress ${ownerHint}. Return the nid.`,
+      `Call grove_help first if you need the tool list. Then use grove_write_note with title "Field brief", a short synthetic body about Tiramisu handoff, and ownerAddress ${ownerHint}. Reply with only the nid (and the endorse URL if the tool returns one).`,
     [ownerHint],
   );
+
+  const endorseHref = useMemo(() => {
+    const clean = nid.trim();
+    if (!clean) return "/app/live?from=mcp";
+    return `/app/live?nid=${encodeURIComponent(clean)}&from=mcp`;
+  }, [nid]);
 
   const cursorSnippet = useMemo(
     () =>
@@ -91,11 +100,16 @@ export default function McpConnectPage() {
     }
   }
 
+  function goEndorse() {
+    router.push(endorseHref);
+  }
+
   return (
     <div className="mcp-page">
       <PageHeader title="Connect MCP">
-        Pick a client, copy the endpoint, ask it to write — then{" "}
-        <Link href="/app/live">endorse in Live</Link>.
+        Write from Claude / Cursor, paste the{" "}
+        <code className="font-mono">nid</code>, then endorse — Live’s allowlist
+        wizard is not part of this path.
       </PageHeader>
 
       <div className="mcp-stage">
@@ -183,13 +197,8 @@ export default function McpConnectPage() {
                           page is normal
                         </li>
                         <li>
-                          If Claude says “authorized but error connecting”,
-                          remove the connector, wait for the latest deploy, and
-                          add it again (Streamable HTTP only — no Redis/SSE)
-                        </li>
-                        <li>
-                          Avoid <code className="font-mono">MCP_SHARED_SECRET</code>{" "}
-                          on Vercel for Claude.ai
+                          When Claude shows Connected, come back here for Ask →
+                          Endorse (not Live’s Allowlist step)
                         </li>
                       </ol>
                     </>
@@ -254,7 +263,9 @@ export default function McpConnectPage() {
                   <h3 className="mcp-panel-title">Prompt to paste</h3>
                   {!isConnected && (
                     <p className="mcp-warn">
-                      Connect your wallet in Live so ownerAddress is filled.
+                      Connect your wallet first so{" "}
+                      <code className="font-mono">ownerAddress</code> is your
+                      endorse wallet.
                     </p>
                   )}
                   <pre className="mcp-pre mcp-pre-prompt">{askPrompt}</pre>
@@ -283,7 +294,7 @@ export default function McpConnectPage() {
                       className="d-btn d-btn-line"
                       onClick={() => setStep(2)}
                     >
-                      Next · Endorse
+                      Next · Paste nid
                     </button>
                   </div>
                 </div>
@@ -291,25 +302,52 @@ export default function McpConnectPage() {
 
               {step === 2 && (
                 <div className="mcp-panel">
-                  <h3 className="mcp-panel-title">Approve in Live</h3>
+                  <h3 className="mcp-panel-title">Endorse the MCP note</h3>
                   <p className="sheet-copy">
-                    When the AI returns a <code className="font-mono">nid</code>,
-                    open Live with the same wallet, finish Endorse → Approve.
-                    The note then appears in your Vault.
+                    Paste the <code className="font-mono">nid</code> Claude (or
+                    Cursor) returned. Grove opens Live directly on{" "}
+                    <strong>Endorse</strong> — not Allowlist.
+                  </p>
+                  <label className="mt-3 block text-xs text-[var(--mute)]">
+                    nid from the AI
+                    <input
+                      className="d-field mt-1 font-mono"
+                      value={nid}
+                      onChange={(e) => setNid(e.target.value)}
+                      placeholder="paste nid here"
+                      autoFocus
+                    />
+                  </label>
+                  <p className="sheet-copy mt-2 text-xs break-all">
+                    Opens: <code className="font-mono">{endorseHref}</code>
                   </p>
                   <div className="sheet-actions">
-                    <Link href="/app/live" className="d-btn d-btn-signal">
-                      Open Live
+                    <button
+                      type="button"
+                      className="d-btn d-btn-signal"
+                      disabled={!nid.trim()}
+                      onClick={goEndorse}
+                    >
+                      Open Endorse
+                    </button>
+                    <Link
+                      href={endorseHref}
+                      className="d-btn d-btn-line"
+                      onClick={(e) => {
+                        if (!nid.trim()) e.preventDefault();
+                      }}
+                    >
+                      Open in new tab path
                     </Link>
-                    <Link href="/app" className="d-btn d-btn-line">
-                      Open Vault
+                    <Link href="/app/pending" className="d-btn d-btn-line">
+                      Or Pending queue
                     </Link>
                     <button
                       type="button"
                       className="d-btn d-btn-line"
-                      onClick={() => setStep(0)}
+                      onClick={() => setStep(1)}
                     >
-                      Back to connect
+                      Back
                     </button>
                   </div>
                 </div>

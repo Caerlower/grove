@@ -29,7 +29,7 @@ export const GROVE_MCP_HELP = {
     },
   ],
   write_tip:
-    "For Live demos, pass ownerAddress as the user’s connected wallet, then Approve in /app/live.",
+    "Pass ownerAddress as the user’s connected wallet, then open /app/live?nid=<nid>&from=mcp to Approve (skip Allowlist).",
   clients:
     "Remote URL: https://<host>/api/mcp — Claude.ai connectors, Cursor, Claude Desktop (mcp-remote), ChatGPT where MCP is enabled.",
 } as const;

@@ -88,6 +88,8 @@ server.tool(
               txHashes: result.txHashes,
               payloadSha256: result.payloadSha256,
               ownerAddress: cfg.ownerAddress,
+              endorsePath: `/app/live?nid=${result.nid}&from=mcp`,
+              next: `Open /app/live?nid=${result.nid}&from=mcp with the owner wallet and Approve (skip Allowlist).`,
             },
             null,
             2,

@@ -68,6 +68,9 @@ export default function LivePlaygroundPage() {
   );
   const [claudeOk, setClaudeOk] = useState<boolean | null>(null);
   const [step, setStep] = useState<Step>("connect");
+  const [fromMcp, setFromMcp] = useState(false);
+  const [nidDraft, setNidDraft] = useState("");
+  const [bootstrappedNid, setBootstrappedNid] = useState(false);
 
   const push = useCallback((text: string, links?: ActivityLink[]) => {
     setLog((prev) =>
@@ -82,6 +85,52 @@ export default function LivePlaygroundPage() {
       ].slice(0, 50),
     );
   }, []);
+
+  const openNoteForEndorse = useCallback(
+    async (rawNid: string, opts?: { fromMcp?: boolean }) => {
+      const clean = rawNid.trim();
+      if (!clean) return;
+      setError(null);
+      setNid(clean);
+      setEndorseTx(null);
+      setEndorseDecision(null);
+      setGateAfter(null);
+      if (opts?.fromMcp) setFromMcp(true);
+      try {
+        const nte = await refreshNote(clean);
+        if (!nte) {
+          setError(`No note found for nid ${clean}`);
+          push(`Could not load nid ${clean}`);
+          return;
+        }
+        if (address) {
+          const g = await fetchGate(clean);
+          setGateBefore(g);
+          if (g.reason === "creator_not_allowlisted") {
+            setAgentAllowed(false);
+          } else {
+            setAgentAllowed(true);
+          }
+          push(
+            `Loaded note for endorse · gate ${g.allow ? "ALLOW" : "REJECT"} (${g.reason ?? g.label ?? "ok"})`,
+            [{ label: `nid ${clean}`, href: entityUrl(nte.key) }],
+          );
+        } else {
+          setGateBefore(null);
+          push(`Loaded nid ${clean} — connect wallet to endorse`, [
+            { label: `nid ${clean}`, href: entityUrl(nte.key) },
+          ]);
+        }
+        setStep(address ? "endorse" : "connect");
+      } catch (e) {
+        setError(String(e));
+        push(`Load nid failed: ${String(e)}`);
+      }
+    },
+    // refreshNote/fetchGate close over address; keep deps minimal
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [address, push],
+  );
 
   useEffect(() => {
     push("Connect your wallet — you will be the vault owner who endorses.");
@@ -100,15 +149,33 @@ export default function LivePlaygroundPage() {
         else setClaudeOk(true);
       })
       .catch(() => setClaudeOk(false));
+
+    const params = new URLSearchParams(window.location.search);
+    const q = params.get("nid")?.trim();
+    const mcp = params.get("from") === "mcp";
+    if (q) {
+      setFromMcp(mcp);
+      setNidDraft(q);
+      setBootstrappedNid(true);
+      void openNoteForEndorse(q, { fromMcp: mcp });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [push]);
 
   useEffect(() => {
     if (!isConnected) {
-      setStep("connect");
+      if (!nid) setStep("connect");
       return;
     }
-    if (step === "connect") setStep("allow");
-  }, [isConnected, step]);
+    if (step !== "connect") return;
+    // MCP / deep-link: skip allowlist + write wizards and go endorse
+    if (nid || bootstrappedNid) {
+      setStep("endorse");
+      if (nid) void openNoteForEndorse(nid, { fromMcp });
+      return;
+    }
+    setStep("allow");
+  }, [isConnected, step, nid, bootstrappedNid, fromMcp, openNoteForEndorse]);
 
   async function fetchGate(n: string): Promise<GateResult> {
     if (!address) return { allow: false, reason: "no_wallet" };
@@ -144,7 +211,13 @@ export default function LivePlaygroundPage() {
           href: entityUrl(created.entityKey),
         },
       ]);
-      setStep("write");
+      if (nid) {
+        const g = await fetchGate(nid);
+        setGateBefore(g);
+        setStep("endorse");
+      } else {
+        setStep("write");
+      }
     } catch (e) {
       setError(String(e));
       push(`Allowlist failed: ${String(e)}`);
@@ -340,10 +413,10 @@ export default function LivePlaygroundPage() {
         {
           id: "endorse" as const,
           label: "4 · Endorse",
-          locked: !nid,
+          locked: !isConnected,
         },
       ] as const,
-    [isConnected, nid],
+    [isConnected],
   );
 
   return (
@@ -473,8 +546,22 @@ export default function LivePlaygroundPage() {
                     </div>
                     <p className="sheet-copy mt-2 text-xs">
                       After the AI returns a <code className="font-mono">nid</code>,
-                      come back here and continue to Endorse (or open Pending).
+                      open{" "}
+                      <Link href="/app/mcp" className="underline">
+                        Connect MCP → Endorse
+                      </Link>{" "}
+                      and paste it, or go to step 4 and paste the nid — skip
+                      Allowlist/Write for that note.
                     </p>
+                    <div className="sheet-actions">
+                      <button
+                        type="button"
+                        className="d-btn d-btn-line"
+                        onClick={() => setStep("endorse")}
+                      >
+                        I already have an nid → Endorse
+                      </button>
+                    </div>
                   </div>
 
                   <div className="write-path">
@@ -567,10 +654,50 @@ export default function LivePlaygroundPage() {
             </section>
           )}
 
+          {step === "endorse" && !nid && (
+            <section className="sheet">
+              <div className="sheet-pad">
+                <p className="sheet-label">Step 4 · Endorse</p>
+                <h2 className="sheet-title">Paste a note id from MCP</h2>
+                <p className="sheet-copy">
+                  After Claude / Cursor returns an <code className="font-mono">nid</code>,
+                  paste it here to approve — you do not need the Allowlist or Write
+                  steps again for that note.
+                </p>
+                <label className="mt-3 block text-xs text-[var(--mute)]">
+                  nid
+                  <input
+                    className="d-field mt-1 font-mono"
+                    value={nidDraft}
+                    onChange={(e) => setNidDraft(e.target.value)}
+                    placeholder="e.g. a1b2c3d4…"
+                  />
+                </label>
+                <div className="sheet-actions">
+                  <button
+                    type="button"
+                    className="d-btn d-btn-signal"
+                    disabled={!nidDraft.trim() || !!busy}
+                    onClick={() =>
+                      void openNoteForEndorse(nidDraft, { fromMcp: true })
+                    }
+                  >
+                    Load note · Endorse
+                  </button>
+                  <Link href="/app/pending" className="d-btn d-btn-line">
+                    Open Pending queue
+                  </Link>
+                </div>
+              </div>
+            </section>
+          )}
+
           {step === "endorse" && nid && (
             <section className="sheet endorse-sheet">
               <div className="sheet-pad endorse-panel">
-                <p className="sheet-label">Step 4 · Endorse</p>
+                <p className="sheet-label">
+                  {fromMcp ? "MCP write · Endorse" : "Step 4 · Endorse"}
+                </p>
                 <h2 className="sheet-title endorse-title">
                   {done
                     ? doneOk
@@ -585,6 +712,27 @@ export default function LivePlaygroundPage() {
                       : "You rejected this draft. The gate stays closed — no note body for readers."
                     : "Until you sign, every reader gets REJECT · pending_review. Approve binds your wallet to this ciphertext hash."}
                 </p>
+
+                {gateBefore?.reason === "creator_not_allowlisted" && !done && (
+                  <div className="mcp-warn mt-3">
+                    <p>
+                      Demo Agent A is not allowlisted yet — required once so the
+                      gate can allow this creator after you Approve.
+                    </p>
+                    <div className="sheet-actions" style={{ marginTop: "0.75rem" }}>
+                      <button
+                        type="button"
+                        disabled={!!busy || !onTiramisu || !arkiv}
+                        onClick={() => void registerAgent()}
+                        className="d-btn d-btn-signal"
+                      >
+                        {busy === "allow"
+                          ? "Confirm in wallet…"
+                          : "Allowlist Agent A"}
+                      </button>
+                    </div>
+                  </div>
+                )}
 
                 <dl className="endorse-meta">
                   <div>
