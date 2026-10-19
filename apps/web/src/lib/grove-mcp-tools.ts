@@ -79,11 +79,39 @@ export function registerGroveMcpTools(server: ToolServer) {
     },
     async ({ title, body, tags, links, ownerAddress }) => {
       const env = mcpEnv();
-      const resolvedOwner = ownerAddress
-        ? getAddress(ownerAddress)
-        : getMcpRequestOwner()
-          ? getAddress(getMcpRequestOwner()!)
-          : getBoundMcpOwner() ?? getAddress(env.cfg.ownerAddress);
+      const fromToken = getMcpRequestOwner();
+      const fromBind = await getBoundMcpOwner();
+      let resolvedOwner: string | null = null;
+      if (ownerAddress) {
+        resolvedOwner = getAddress(ownerAddress);
+      } else if (fromToken) {
+        resolvedOwner = getAddress(fromToken);
+      } else if (fromBind) {
+        resolvedOwner = fromBind;
+      }
+
+      // Never silently fall back to NEXT_PUBLIC_OWNER_ADDRESS — that was
+      // writing every MCP note to the seeded env wallet.
+      if (!resolvedOwner) {
+        return {
+          content: [
+            {
+              type: "text",
+              text: JSON.stringify(
+                {
+                  error: "no_bound_owner",
+                  message:
+                    "No wallet bound for MCP writes. Open Grove Live, connect the endorse wallet, wait a moment, then retry grove_write_note without ownerAddress.",
+                },
+                null,
+                2,
+              ),
+            },
+          ],
+          isError: true,
+        };
+      }
+
       const cfg = {
         ...env.cfg,
         ownerAddress: resolvedOwner,
@@ -113,7 +141,7 @@ export function registerGroveMcpTools(server: ToolServer) {
                 payloadSha256: result.payloadSha256,
                 ownerAddress: cfg.ownerAddress,
                 endorsePath: `/app/live`,
-                next: `Tell the user to return to Grove Live — Endorse opens automatically for ${cfg.ownerAddress}.`,
+                next: `Return to Grove Live — Endorse opens automatically for ${cfg.ownerAddress}.`,
               },
               null,
               2,

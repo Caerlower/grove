@@ -9,7 +9,7 @@ import { setBoundMcpOwner } from "@/lib/mcp-bound-owner";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-function complete(opts: {
+async function complete(opts: {
   clientId: string;
   redirectUri: string;
   state: string | null;
@@ -38,9 +38,9 @@ function complete(opts: {
   if (opts.ownerAddress && isAddress(opts.ownerAddress)) {
     owner = getAddress(opts.ownerAddress);
     try {
-      setBoundMcpOwner(owner);
-    } catch {
-      /* non-fatal */
+      await setBoundMcpOwner(owner);
+    } catch (e) {
+      console.error("[oauth] bind owner failed", e);
     }
   }
 
@@ -58,7 +58,7 @@ function complete(opts: {
 }
 
 /** Consent UI — connect wallet so MCP writes default to that owner. */
-export function GET(req: Request) {
+export async function GET(req: Request) {
   const url = new URL(req.url);
   const clientId = url.searchParams.get("client_id") ?? "";
   const redirectUri = url.searchParams.get("redirect_uri") ?? "";
@@ -71,7 +71,7 @@ export function GET(req: Request) {
 
   // After consent (with or without wallet)
   if (approved) {
-    const next = complete({
+    const next = await complete({
       clientId,
       redirectUri,
       state,

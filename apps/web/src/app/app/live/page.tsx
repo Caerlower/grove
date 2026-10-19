@@ -160,15 +160,34 @@ export default function LivePlaygroundPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [push]);
 
-  // Bind connected wallet as default MCP write owner.
+  // Bind connected wallet as default MCP write owner (durable on Arkiv).
   useEffect(() => {
     if (!address) return;
+    let cancelled = false;
     void fetch("/api/mcp/bind-owner", {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ address }),
-    }).catch(() => undefined);
-  }, [address]);
+    })
+      .then(async (r) => {
+        const data = (await r.json()) as {
+          ownerAddress?: string;
+          error?: string;
+        };
+        if (cancelled) return;
+        if (!r.ok) {
+          push(`MCP owner bind failed: ${data.error ?? r.status}`);
+          return;
+        }
+        push(`MCP writes will hand off to ${data.ownerAddress ?? address}`);
+      })
+      .catch((e) => {
+        if (!cancelled) push(`MCP owner bind failed: ${String(e)}`);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [address, push]);
 
   useEffect(() => {
     if (!isConnected || !address) {

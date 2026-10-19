@@ -7,8 +7,9 @@ import {
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+export const maxDuration = 60;
 
-/** Bind the Grove UI connected wallet as default MCP write owner. */
+/** Bind the Grove UI connected wallet as default MCP write owner (on-chain). */
 export async function POST(req: Request) {
   try {
     const body = (await req.json()) as { address?: string };
@@ -18,9 +19,10 @@ export async function POST(req: Request) {
         { status: 400 },
       );
     }
-    const ownerAddress = setBoundMcpOwner(body.address);
+    const ownerAddress = await setBoundMcpOwner(body.address);
     return NextResponse.json({ ok: true, ownerAddress });
   } catch (e) {
+    console.error("[bind-owner]", e);
     return NextResponse.json(
       { error: e instanceof Error ? e.message : String(e) },
       { status: 500 },
@@ -29,7 +31,14 @@ export async function POST(req: Request) {
 }
 
 export async function GET() {
-  return NextResponse.json({
-    ownerAddress: getBoundMcpOwner(),
-  });
+  try {
+    return NextResponse.json({
+      ownerAddress: await getBoundMcpOwner(),
+    });
+  } catch (e) {
+    return NextResponse.json(
+      { error: e instanceof Error ? e.message : String(e) },
+      { status: 500 },
+    );
+  }
 }

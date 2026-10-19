@@ -1,99 +1,133 @@
 import "server-only";
-import { createHmac, timingSafeEqual } from "node:crypto";
-import { existsSync, readFileSync, writeFileSync } from "node:fs";
-import { getAddress, isAddress } from "viem";
+import { ExpirationTime } from "@arkiv-network/sdk";
+import { eq } from "@arkiv-network/sdk/query";
+import { str, u64 } from "@arkiv-network/sdk/attr";
+import {
+  createGrovePublicClient,
+  createGroveWalletClient,
+  JSON_CONTENT_TYPE,
+} from "@grove/core";
+import { getAddress, isAddress, type Hex } from "viem";
+import { privateKeyToAccount } from "viem/accounts";
+import {
+  requireAgentKey,
+  serverCfg,
+  serverRpcUrl,
+} from "@/lib/server-grove";
 
 /**
- * Demo-wide "active endorse wallet" for MCP writes.
- * Set from Connect MCP when the user connects; grove_write_note uses it
- * when ownerAddress is omitted. Durable enough for Vercel via /tmp + memory.
+ * Active MCP write owner — durable on Arkiv so every Vercel instance sees it.
+ * Browser Live/MCP bind writes here; grove_write_note reads it.
  */
 
-type Bound = { a: string; exp: number };
-
-const FILE = "/tmp/grove-mcp-bound-owner.json";
-const TTL_MS = 7 * 24 * 60 * 60_000;
+const MCP_OWNER_TYPE = "mcp_owner";
+const LIFE_SECONDS = 7 * 24 * 60 * 60;
 
 declare global {
   // eslint-disable-next-line no-var
-  var __groveMcpBoundOwner: string | undefined;
+  var __groveMcpBoundOwnerCache:
+    | { address: string; at: number }
+    | undefined;
 }
 
-function hmacSecret() {
-  return (
-    process.env.MCP_OAUTH_HMAC_SECRET?.trim() ||
-    process.env.ARKIV_API_KEY?.trim() ||
-    "grove-demo-oauth-dev-only"
-  );
+function attrStr(
+  attrs: Record<string, { type: string; value: unknown }>,
+  key: string,
+): string {
+  const v = attrs[key]?.value;
+  return typeof v === "string" ? v : v != null ? String(v) : "";
 }
 
-function b64url(data: string | Buffer) {
-  return Buffer.from(data)
-    .toString("base64")
-    .replace(/\+/g, "-")
-    .replace(/\//g, "_")
-    .replace(/=+$/g, "");
+function attrU64(
+  attrs: Record<string, { type: string; value: unknown }>,
+  key: string,
+): number {
+  const v = attrs[key]?.value;
+  if (typeof v === "bigint") return Number(v);
+  if (typeof v === "number") return v;
+  if (typeof v === "string" && v) return Number(v);
+  return 0;
 }
 
-function fromB64url(s: string) {
-  const pad = s.length % 4 === 0 ? "" : "=".repeat(4 - (s.length % 4));
-  return Buffer.from(s.replace(/-/g, "+").replace(/_/g, "/") + pad, "base64");
-}
-
-function sign(raw: string) {
-  return createHmac("sha256", hmacSecret()).update(raw).digest("base64url");
-}
-
-function seal(obj: Bound): string {
-  const raw = b64url(JSON.stringify(obj));
-  return `${raw}.${sign(raw)}`;
-}
-
-function open(token: string): Bound | null {
-  const [raw, sig] = token.split(".");
-  if (!raw || !sig) return null;
-  const expect = sign(raw);
-  try {
-    const a = Buffer.from(sig);
-    const b = Buffer.from(expect);
-    if (a.length !== b.length || !timingSafeEqual(a, b)) return null;
-  } catch {
-    return null;
-  }
-  try {
-    return JSON.parse(fromB64url(raw).toString("utf8")) as Bound;
-  } catch {
-    return null;
-  }
-}
-
-function readSealed(): string | undefined {
-  if (globalThis.__groveMcpBoundOwner) return globalThis.__groveMcpBoundOwner;
-  try {
-    if (existsSync(FILE)) return readFileSync(FILE, "utf8").trim();
-  } catch {
-    /* ignore */
-  }
-  return undefined;
-}
-
-export function setBoundMcpOwner(address: string): string {
+export async function setBoundMcpOwner(address: string): Promise<string> {
   if (!isAddress(address)) throw new Error("Invalid address");
   const checksummed = getAddress(address);
-  const sealed = seal({ a: checksummed, exp: Date.now() + TTL_MS });
-  globalThis.__groveMcpBoundOwner = sealed;
-  try {
-    writeFileSync(FILE, sealed, "utf8");
-  } catch {
-    /* /tmp may be unavailable in some runtimes — memory still works */
-  }
+  const cfg = serverCfg();
+  const agentKey = requireAgentKey();
+  const { client } = createGroveWalletClient(serverRpcUrl(), agentKey);
+  const boundat = Math.floor(Date.now() / 1000);
+
+  await client.createEntity({
+    payload: new TextEncoder().encode(
+      JSON.stringify({ ownerAddress: checksummed, boundat }),
+    ),
+    contentType: JSON_CONTENT_TYPE,
+    attributes: {
+      project: str(cfg.project),
+      type: str(MCP_OWNER_TYPE),
+      vault: str(cfg.vaultId),
+      owneraddr: str(checksummed.toLowerCase()),
+      boundat: u64(BigInt(boundat)),
+    },
+    expires: ExpirationTime.fromSeconds(LIFE_SECONDS),
+  });
+
+  globalThis.__groveMcpBoundOwnerCache = {
+    address: checksummed,
+    at: Date.now(),
+  };
   return checksummed;
 }
 
-export function getBoundMcpOwner(): string | null {
-  const sealed = readSealed();
-  if (!sealed) return null;
-  const bound = open(sealed);
-  if (!bound || bound.exp < Date.now() || !isAddress(bound.a)) return null;
-  return getAddress(bound.a);
+export async function getBoundMcpOwner(): Promise<string | null> {
+  const cached = globalThis.__groveMcpBoundOwnerCache;
+  if (cached && Date.now() - cached.at < 30_000) {
+    return cached.address;
+  }
+
+  try {
+    const cfg = serverCfg();
+    const agentKey = requireAgentKey();
+    const agent = privateKeyToAccount(agentKey as Hex).address;
+    const publicClient = createGrovePublicClient(serverRpcUrl());
+    const page = await publicClient
+      .select({
+        key: true,
+        creator: true,
+        payload: true,
+        attributes: true,
+      })
+      .where(
+        eq("project", str(cfg.project)),
+        eq("type", str(MCP_OWNER_TYPE)),
+        eq("vault", str(cfg.vaultId)),
+      )
+      .createdBy(getAddress(agent))
+      .limit(50)
+      .fetch();
+
+    let best: { addr: string; at: number } | null = null;
+    for (const e of page.entities) {
+      const attrs = e.attributes as Record<
+        string,
+        { type: string; value: unknown }
+      >;
+      const addrRaw = attrStr(attrs, "owneraddr");
+      if (!addrRaw || !isAddress(addrRaw)) continue;
+      const at = attrU64(attrs, "boundat");
+      if (!best || at >= best.at) {
+        best = { addr: getAddress(addrRaw), at };
+      }
+    }
+
+    if (!best) return null;
+    globalThis.__groveMcpBoundOwnerCache = {
+      address: best.addr,
+      at: Date.now(),
+    };
+    return best.addr;
+  } catch (e) {
+    console.error("[mcp-bound-owner] read failed", e);
+    return cached?.address ?? null;
+  }
 }
